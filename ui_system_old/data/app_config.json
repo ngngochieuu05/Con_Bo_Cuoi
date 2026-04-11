@@ -1,0 +1,14 @@
+{
+  "user_camera_index": 1,
+  "admin_camera_index": 0,
+  "model_path": null,
+  "threshold": 0.5,
+  "camera_index": 1,
+  "server_ip": "192.168.1.12",
+  "server_port": 8552,
+  "server_url": "http://192.168.1.12:8552",
+  "webapp_enabled": true,
+  "webapp_auto_start": true,
+  "webapp_host": "192.168.1.10",
+  "webapp_port": 8000
+}

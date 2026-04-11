@@ -1,0 +1,45 @@
+{
+  "records": [
+    {
+      "id_user": 1,
+      "ten_dang_nhap": "admin",
+      "mat_khau": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "vai_tro": "admin",
+      "ho_ten": "Quản trị viên",
+      "created_at": "2026-01-01T00:00:00"
+    },
+    {
+      "id_user": 2,
+      "ten_dang_nhap": "expert01",
+      "mat_khau": "34a6c1a9600377c8dc05ea00380f406fb52e8104e921dc6bd5869bfdf1516164",
+      "vai_tro": "expert",
+      "ho_ten": "Nguyễn Văn Chuyên",
+      "created_at": "2026-01-02T00:00:00"
+    },
+    {
+      "id_user": 3,
+      "ten_dang_nhap": "farmer01",
+      "mat_khau": "26c07fc7be1668f8ea7e3801d4ffdbf33de487a593a69028936ec49f2c89f6ab",
+      "vai_tro": "farmer",
+      "ho_ten": "Trần Thị Nông",
+      "created_at": "2026-01-03T00:00:00"
+    },
+    {
+      "id_user": 4,
+      "ten_dang_nhap": "HieuBenTau",
+      "mat_khau": "932f3c1b56257ce8539ac269d7aab42550dacf8818d075f0bdf1990562aae3ef",
+      "vai_tro": "farmer",
+      "ho_ten": "Nguyễn Ngọc Hiếu",
+      "created_at": "2026-04-10T21:48:56.100229"
+    },
+    {
+      "id_user": 5,
+      "ten_dang_nhap": "phúc quý bửu",
+      "mat_khau": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+      "vai_tro": "farmer",
+      "ho_ten": "phúc quý bửu",
+      "created_at": "2026-04-11T06:37:06.020447"
+    }
+  ],
+  "next_id": 6
+}

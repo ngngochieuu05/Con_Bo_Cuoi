@@ -1,0 +1,8 @@
+{
+  "server_url": "http://127.0.0.1:8000",
+  "camera_index": 0,
+  "auto_connect": false,
+  "notify_alert": true,
+  "app_mode": "web",
+  "app_port": 8550
+}

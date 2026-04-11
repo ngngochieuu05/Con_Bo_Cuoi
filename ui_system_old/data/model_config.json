@@ -1,0 +1,21 @@
+{
+  "face_recognition": {
+    "model_name": "ArcFace (v2.1)",
+    "model_path": "D:\\AppGS_v2\\giam_sat_lai_xe\\models\\trained_model_Login\\best.pt",
+    "confidence_threshold": 0.8,
+    "min_face_size": 45,
+    "cosine_threshold": 0.55
+  },
+  "cattle_detection": {
+    "model_name": "YOLOv8n-Cattle (v1.0)",
+    "model_path": "models/yolov8n.pt",
+    "confidence_threshold": 0.5,
+    "iou_threshold": 0.45
+  },
+  "camera": {
+    "default_index": 1,
+    "resolution_width": 640,
+    "resolution_height": 480,
+    "fps": 30
+  }
+}
