@@ -1,4 +1,5 @@
 ﻿from __future__ import annotations
+import base64
 import datetime
 import os
 import tempfile
@@ -570,34 +571,85 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
         _append_bubble(msg)
 
     def _open_camera_live(e):
-        """Mo dialog xem camera realtime, cho phep chup anh gui vao chat."""
+        """Camera dialog: live preview → chụp → xem lại → gửi / chụp lại."""
         stop_evt   = threading.Event()
-        last_frame = [None]
+        last_frame = {"frame": None}
+        snap_path  = {"path": None}     # ảnh đã chụp
+        is_preview = {"on": False}      # đang xem ảnh đã chụp?
 
+        # ── controls ──────────────────────────────────────────────────────
         live_img = ft.Image(
-            width=300, height=225,
-            border_radius=8,
-            fit=ft.ImageFit.CONTAIN,
-            src_base64="",
+            width=300, height=225, border_radius=8,
+            fit=ft.ImageFit.COVER,
+            src_base64="", visible=False,
+        )
+        snap_img = ft.Image(
+            width=300, height=225, border_radius=8,
+            fit=ft.ImageFit.COVER,
             visible=False,
         )
-        # Placeholder hien thi khi camera chua bat
         placeholder = ft.Container(
-            width=300, height=225,
-            border_radius=8,
-            bgcolor=ft.Colors.with_opacity(0.15, ft.Colors.WHITE),
+            width=300, height=225, border_radius=8,
+            bgcolor=ft.Colors.with_opacity(0.14, ft.Colors.WHITE),
             alignment=ft.alignment.center,
             content=ft.Column(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                tight=True, spacing=8,
+                tight=True, spacing=10,
                 controls=[
-                    ft.Icon(ft.Icons.VIDEOCAM, size=40, color=ft.Colors.WHITE38),
-                    ft.Text("Đang khởi động camera…", size=12, color=ft.Colors.WHITE60),
+                    ft.ProgressRing(width=32, height=32, color=ft.Colors.AMBER_300),
+                    ft.Text("Đang khởi động camera…", size=12,
+                            color=ft.Colors.WHITE60),
                 ],
             ),
         )
-        cam_msg = ft.Text("", size=11, color=ft.Colors.RED_300)
-        video_stack = ft.Stack(width=300, height=225, controls=[placeholder, live_img])
+        status_lbl  = ft.Text("", size=11, color=ft.Colors.RED_300)
+        fps_lbl     = ft.Text("", size=9, color=ft.Colors.WHITE24)
+
+        video_stack = ft.Stack(
+            width=300, height=225,
+            controls=[placeholder, live_img, snap_img],
+        )
+
+        # ── action buttons ────────────────────────────────────────────────
+        capture_btn_ref = ft.Ref[ft.ElevatedButton]()
+        retake_btn_ref  = ft.Ref[ft.OutlinedButton]()
+        close_btn_ref   = ft.Ref[ft.OutlinedButton]()
+
+        def _set_preview_mode(on: bool):
+            is_preview["on"] = on
+            live_img.visible  = not on and last_frame["frame"] is not None
+            snap_img.visible  = on
+            btn = capture_btn_ref.current
+            if btn:
+                if on:
+                    btn.text     = "Gửi"
+                    btn.icon     = ft.Icons.SEND
+                    btn.on_click = _do_send
+                    btn.style    = ft.ButtonStyle(
+                        bgcolor=PRIMARY,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=10),
+                    )
+                else:
+                    btn.text     = "Chụp"
+                    btn.icon     = ft.Icons.CAMERA
+                    btn.on_click = _do_capture
+                    btn.style    = ft.ButtonStyle(
+                        bgcolor=ft.Colors.AMBER_700,
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=10),
+                    )
+            if retake_btn_ref.current:
+                retake_btn_ref.current.visible = on
+            if close_btn_ref.current:
+                close_btn_ref.current.visible  = not on
+            status_lbl.value = "✅ Ảnh đã chụp — Gửi hoặc Chụp lại" if on else ""
+            status_lbl.color = ft.Colors.GREEN_300 if on else ft.Colors.RED_300
+            try:
+                if page:
+                    page.update()
+            except Exception:
+                pass
 
         def _stream():
             try:
@@ -607,8 +659,12 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     tight=True, spacing=8,
                     controls=[
-                        ft.Icon(ft.Icons.ERROR_OUTLINE, size=36, color=ft.Colors.RED_300),
-                        ft.Text("Chưa cài opencv-python.", size=11, color=ft.Colors.RED_300),
+                        ft.Icon(ft.Icons.ERROR_OUTLINE, size=36,
+                                color=ft.Colors.RED_300),
+                        ft.Text("Chưa cài opencv-python.\n"
+                                "Cài bằng: pip install opencv-python",
+                                size=11, color=ft.Colors.RED_300,
+                                text_align=ft.TextAlign.CENTER),
                     ],
                 )
                 try:
@@ -616,6 +672,7 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
                 except Exception:
                     pass
                 return
+
             try:
                 import ctypes
                 ctypes.windll.kernel32.SetErrorMode(0x8007)
@@ -628,6 +685,7 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
             except (ValueError, TypeError):
                 idx = 0
 
+            # Thử CAP_DSHOW trước (Windows nhanh hơn), fallback generic
             cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
             if not cap.isOpened():
                 cap = cv2.VideoCapture(idx)
@@ -636,8 +694,14 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     tight=True, spacing=8,
                     controls=[
-                        ft.Icon(ft.Icons.VIDEOCAM_OFF, size=36, color=ft.Colors.RED_300),
-                        ft.Text(f"Không mở được camera {idx}.", size=11, color=ft.Colors.RED_300),
+                        ft.Icon(ft.Icons.VIDEOCAM_OFF, size=36,
+                                color=ft.Colors.RED_300),
+                        ft.Text(
+                            f"Không mở được camera (index={idx}).\n"
+                            "Kiểm tra kết nối webcam.",
+                            size=11, color=ft.Colors.RED_300,
+                            text_align=ft.TextAlign.CENTER,
+                        ),
                     ],
                 )
                 try:
@@ -647,105 +711,171 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
                 return
 
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            for _ in range(3):
+            for _ in range(4):      # flush buffered frames
                 cap.grab()
 
-            # An placeholder, hien live image
             placeholder.visible = False
-            live_img.visible = True
+            live_img.visible    = True
             try:
                 if page:
                     page.update()
             except Exception:
                 pass
 
-            _interval = 1.0 / 30  # 30 FPS
+            _target_fps = 20
+            _interval   = 1.0 / _target_fps
+            _frame_t    = time.time()
+
             try:
                 while not stop_evt.is_set():
+                    if is_preview["on"]:    # không stream khi đang xem ảnh
+                        time.sleep(0.05)
+                        continue
                     t0 = time.time()
                     ret, frame = cap.read()
                     if not ret:
                         break
-                    last_frame[0] = frame
+                    last_frame["frame"] = frame
 
                     small = cv2.resize(frame, (300, 225))
-                    _, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 60])
-                    b64 = base64.b64encode(bytes(buf)).decode()
-                    live_img.src_base64 = b64
-                    if stop_evt.is_set():  # không update nữa khi đang dừng
+                    _, buf = cv2.imencode(
+                        ".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 55]
+                    )
+                    live_img.src_base64 = base64.b64encode(bytes(buf)).decode()
+
+                    elapsed = time.time() - t0
+                    actual_fps = 1.0 / max(elapsed, 0.001)
+                    fps_lbl.value = f"{actual_fps:.0f} fps"
+
+                    if stop_evt.is_set():
                         break
                     try:
                         if page:
                             page.update()
                     except Exception:
                         break
-                    elapsed = time.time() - t0
-                    wait = _interval - elapsed
+
+                    wait = _interval - (time.time() - t0)
                     if wait > 0:
                         time.sleep(wait)
             finally:
                 cap.release()
 
         def _do_capture(e):
-            frame = last_frame[0]
+            """Chụp frame hiện tại → hiển thị preview, chưa gửi."""
+            frame = last_frame["frame"]
             if frame is None:
+                status_lbl.value = "⚠️ Camera chưa sẵn sàng, thử lại."
+                try:
+                    if page:
+                        page.update()
+                except Exception:
+                    pass
                 return
-            import cv2
-            fd, path = tempfile.mkstemp(suffix=".jpg", prefix="cam_snap_")
-            os.close(fd)
-            cv2.imwrite(path, frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            try:
+                import cv2
+                fd, path = tempfile.mkstemp(suffix=".jpg", prefix="cam_snap_")
+                os.close(fd)
+                cv2.imwrite(path, frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+                snap_path["path"] = path
+                snap_img.src = path
+                _set_preview_mode(True)
+            except Exception as ex:
+                status_lbl.value = f"⚠️ Lỗi lưu ảnh: {ex}"
+                try:
+                    if page:
+                        page.update()
+                except Exception:
+                    pass
+
+        def _do_send(e):
+            """Gửi ảnh đã chụp vào chat và chạy AI."""
+            path = snap_path["path"]
+            if not path:
+                return
+            stop_evt.set()
+            try:
+                page.close(dlg)
+            except Exception:
+                try:
+                    dlg.open = False
+                    page.update()
+                except Exception:
+                    pass
             msg = {
                 "sender": "farmer", "text": None,
-                "img_src": path,  # dùng path trực tiếp, không base64 (tránh WebSocket overflow)
-                "file_name": None,
+                "img_src": path, "file_name": None,
                 "time": _now(), "ai_result": None,
             }
             messages.append(msg)
-            # stop_evt đã ngăn stream gọi page.update() thêm → đây là update duy nhất
-            stop_evt.set()
-            dlg.open = False
             _append_bubble(msg)
             _run_ai_analysis(path)
 
+        def _do_retake(e):
+            """Huỷ ảnh, quay lại xem live."""
+            snap_path["path"] = None
+            _set_preview_mode(False)
+
         def _close_cam(e):
             stop_evt.set()
-            if page:
+            try:
+                page.close(dlg)
+            except Exception:
                 try:
-                    page.close(dlg)
+                    dlg.open = False
+                    page.update()
                 except Exception:
-                    try:
-                        dlg.open = False
-                        page.update()
-                    except Exception:
-                        pass
+                    pass
 
         dlg = ft.AlertDialog(
             modal=True,
-            bgcolor=ft.Colors.with_opacity(0.92, ft.Colors.GREY_900),
+            bgcolor=ft.Colors.with_opacity(0.93, ft.Colors.GREY_900),
             title=ft.Row(
                 spacing=8,
                 controls=[
-                    ft.Icon(ft.Icons.CAMERA_ALT, color=ft.Colors.AMBER_300, size=20),
-                    ft.Text("Camera trực tiếp", size=15, weight=ft.FontWeight.W_700),
+                    ft.Icon(ft.Icons.CAMERA_ALT, color=ft.Colors.AMBER_300,
+                            size=20),
+                    ft.Text("Camera trực tiếp", size=15,
+                            weight=ft.FontWeight.W_700,
+                            color=ft.Colors.WHITE),
+                    ft.Container(expand=True),
+                    fps_lbl,
                 ],
             ),
             content=ft.Column(
-                tight=True, spacing=6,
-                controls=[video_stack, cam_msg],
+                tight=True, spacing=8,
+                controls=[
+                    video_stack,
+                    status_lbl,
+                ],
             ),
             actions=[
                 ft.ElevatedButton(
-                    "Chụp",
+                    ref=capture_btn_ref,
+                    text="Chụp",
                     icon=ft.Icons.CAMERA,
                     on_click=_do_capture,
                     style=ft.ButtonStyle(
-                        bgcolor=PRIMARY,
+                        bgcolor=ft.Colors.AMBER_700,
                         color=ft.Colors.WHITE,
                         shape=ft.RoundedRectangleBorder(radius=10),
                     ),
                 ),
-                ft.OutlinedButton("Đóng", on_click=_close_cam),
+                ft.OutlinedButton(
+                    ref=retake_btn_ref,
+                    text="Chụp lại",
+                    icon=ft.Icons.REPLAY,
+                    visible=False,
+                    on_click=_do_retake,
+                ),
+                ft.OutlinedButton(
+                    ref=close_btn_ref,
+                    text="Đóng",
+                    on_click=_close_cam,
+                ),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
             on_dismiss=lambda e: stop_evt.set(),
