@@ -102,9 +102,9 @@ worktrees/
 .claude-archived/
 .claude/
 claude/
-.scripts/
+scripts/
 .history/
-docs/referecences/
+docs/referecences
 docs/research/
 
 .coverage
