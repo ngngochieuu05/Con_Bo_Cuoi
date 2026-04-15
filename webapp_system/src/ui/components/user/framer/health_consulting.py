@@ -1,12 +1,8 @@
 ﻿from __future__ import annotations
 import base64
-import ctypes
 import datetime
-import json
 import mimetypes
 import os
-import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -15,20 +11,21 @@ from pathlib import Path
 import flet as ft
 
 from bll.services.monitor_service import load_config
+from bll.user.farmer import tu_van_ai
 from ui.theme import PRIMARY, SECONDARY, WARNING, DANGER
 
-_CAMERA_HELPER = str(Path(__file__).parent / "_camera_capture.py")
-
-_EXPERT_NAME = "Chuyên gia thú y"
+_EXPERT_NAME   = "Hệ thống AI Thú Y"
+_AI_MODEL_CONF = 0.30
 
 _SEED_MESSAGES = [
     {
-        "sender": "expert",
-        "text": "Xin chào! Tôi là chuyên gia thú y trực tuyến. "
-                "Bạn cần tư vấn về sức khỏe đàn bò không?",
+        "sender": "system",
+        "text": "Xin chào! Tôi là hệ thống AI tư vấn bệnh bò.\n"
+                "Hãy gửi ảnh con bò để tôi phân tích sức khỏe cho bạn.",
         "img_src": None,
         "file_name": None,
         "time": "08:00",
+        "ai_result": None,
     }
 ]
 
@@ -37,93 +34,299 @@ def _now() -> str:
     return datetime.datetime.now().strftime("%H:%M")
 
 
-def _bubble(msg: dict) -> ft.Control:
-    is_me = msg["sender"] == "farmer"
-    align = ft.MainAxisAlignment.END if is_me else ft.MainAxisAlignment.START
-    bg = ft.Colors.with_opacity(0.30, PRIMARY) if is_me \
-        else ft.Colors.with_opacity(0.16, ft.Colors.WHITE)
-    border_col = ft.Colors.with_opacity(0.40, PRIMARY) if is_me \
-        else ft.Colors.with_opacity(0.18, ft.Colors.WHITE)
-    avatar_color = PRIMARY if is_me else SECONDARY
-    avatar_icon  = ft.Icons.PERSON if is_me else ft.Icons.SUPPORT_AGENT
-
-    inner: list[ft.Control] = []
-
-    if msg.get("img_src"):
-        inner.append(
-            ft.Image(
-                src=msg["img_src"],
-                width=200, border_radius=10,
-                fit=ft.ImageFit.COVER,
-            )
-        )
-
-    if msg.get("file_name"):
-        inner.append(
-            ft.Container(
-                padding=ft.padding.symmetric(horizontal=10, vertical=6),
-                border_radius=8,
-                bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
-                content=ft.Row(tight=True, spacing=6, controls=[
-                    ft.Icon(ft.Icons.INSERT_DRIVE_FILE, size=16, color=SECONDARY),
-                    ft.Text(
-                        msg["file_name"], size=12, color=ft.Colors.WHITE,
-                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS,
-                        expand=True,
-                    ),
-                ]),
-            )
-        )
-
-    if msg.get("text"):
-        inner.append(
-            ft.Text(msg["text"], size=13, color=ft.Colors.WHITE, selectable=True)
-        )
-
-    inner.append(
-        ft.Text(
-            msg["time"], size=9,
-            color=ft.Colors.WHITE38,
-            text_align=ft.TextAlign.RIGHT if is_me else ft.TextAlign.LEFT,
-        )
-    )
-
-    bubble = ft.Container(
-        padding=ft.padding.symmetric(horizontal=12, vertical=8),
-        border_radius=ft.border_radius.only(
-            top_left=16, top_right=16,
-            bottom_left=4 if is_me else 16,
-            bottom_right=16 if is_me else 4,
-        ),
-        bgcolor=bg,
-        border=ft.border.all(1, border_col),
-        content=ft.Column(spacing=4, tight=True, controls=inner),
-    )
-
-    avatar = ft.Container(
-        width=30, height=30, border_radius=15,
-        bgcolor=ft.Colors.with_opacity(0.20, avatar_color),
-        alignment=ft.alignment.center,
-        content=ft.Icon(avatar_icon, size=16, color=avatar_color),
-    )
-
-    row_ctrls = [bubble, avatar] if is_me else [avatar, bubble]
-
-    return ft.Row(
-        alignment=align,
-        vertical_alignment=ft.CrossAxisAlignment.END,
-        spacing=6,
-        controls=row_ctrls,
-    )
-
-
-def build_health_consulting(page: ft.Page = None):
+def build_health_consulting(page: ft.Page = None):  # noqa: C901
     messages: list[dict] = list(_SEED_MESSAGES)
-    list_ref  = ft.Ref[ft.ListView]()
-    input_ref = ft.Ref[ft.TextField]()
+    list_ref       = ft.Ref[ft.ListView]()
+    input_ref      = ft.Ref[ft.TextField]()
+    gemini_key_ref = ft.Ref[ft.TextField]()
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _show_snack(msg: str):
+        if page:
+            try:
+                page.snack_bar = ft.SnackBar(ft.Text(msg), open=True)
+                page.update()
+            except Exception:
+                pass
+
+    def _close_dlg(dlg):
+        if page:
+            try:
+                page.close(dlg)
+            except Exception:
+                dlg.open = False
+                page.update()
+
+    def _open_detail_dialog(ai_result: dict):
+        """Popup chi tiết: ảnh chú thích + bảng bệnh + tư vấn Gemini."""
+        diagnosis  = ai_result.get("diagnosis", {})
+        detected   = diagnosis.get("detected", [])
+        b64_img    = ai_result.get("annotated_b64", "")
+        model_name = ai_result.get("model_name", "AI Model")
+
+        gemini_text    = ft.Text(
+            "Nhấn 'Tư vấn AI' để lấy lời khuyên từ Gemini…",
+            size=12, color=ft.Colors.WHITE60, italic=True,
+        )
+        gemini_loading = ft.ProgressRing(width=20, height=20, visible=False,
+                                         color=SECONDARY)
+        gemini_btn     = ft.Ref[ft.ElevatedButton]()
+
+        def _fetch_gemini(e):
+            api_key = (gemini_key_ref.current.value or "").strip() \
+                if gemini_key_ref.current else ""
+            if not api_key:
+                gemini_text.value = "⚠️ Vui lòng nhập Gemini API key."
+                if page:
+                    page.update()
+                return
+            if gemini_btn.current:
+                gemini_btn.current.disabled = True
+            gemini_loading.visible = True
+            if page:
+                page.update()
+            prompt = tu_van_ai.build_gemini_prompt(diagnosis)
+
+            def _on_gemini(text: str):
+                gemini_text.value = text
+                gemini_loading.visible = False
+                if page:
+                    try:
+                        page.update()
+                    except Exception:
+                        pass
+
+            tu_van_ai.call_gemini_async(api_key, prompt, _on_gemini)
+
+        # Bảng bệnh phát hiện
+        disease_rows: list[ft.Control] = []
+        if detected:
+            for d in detected:
+                disease_rows.append(
+                    ft.Container(
+                        margin=ft.margin.only(bottom=4),
+                        padding=ft.padding.symmetric(horizontal=10, vertical=6),
+                        border_radius=8,
+                        bgcolor=ft.Colors.with_opacity(0.15, ft.Colors.RED_300),
+                        border=ft.border.all(
+                            1, ft.Colors.with_opacity(0.30, ft.Colors.RED_300)
+                        ),
+                        content=ft.Row(spacing=8, controls=[
+                            ft.Icon(ft.Icons.CORONAVIRUS, size=16,
+                                    color=ft.Colors.RED_300),
+                            ft.Text(d["class"], size=12, color=ft.Colors.WHITE,
+                                    expand=True),
+                            ft.Text(f"{d['confidence']:.0%}", size=12,
+                                    color=ft.Colors.AMBER_300,
+                                    weight=ft.FontWeight.W_700),
+                        ]),
+                    )
+                )
+        else:
+            disease_rows.append(
+                ft.Text("✅ Không phát hiện bệnh.", size=12,
+                        color=ft.Colors.GREEN_300)
+            )
+
+        annotated_ctrl = (
+            ft.Image(src_base64=b64_img, width=300, height=225,
+                     border_radius=8, fit=ft.ImageFit.CONTAIN)
+            if b64_img
+            else ft.Text("(Không có ảnh)", size=11, color=ft.Colors.WHITE38)
+        )
+
+        dlg_content = ft.Column(
+            scroll=ft.ScrollMode.AUTO, width=340, spacing=10,
+            controls=[
+                annotated_ctrl,
+                ft.Text(f"Model: {model_name}", size=10, color=ft.Colors.WHITE38),
+                ft.Divider(height=1,
+                           color=ft.Colors.with_opacity(0.15, ft.Colors.WHITE)),
+                ft.Text("Kết quả phát hiện bệnh:", size=13,
+                        weight=ft.FontWeight.W_600),
+                *disease_rows,
+                ft.Divider(height=1,
+                           color=ft.Colors.with_opacity(0.15, ft.Colors.WHITE)),
+                ft.Text("Tư vấn từ AI:", size=13, weight=ft.FontWeight.W_600),
+                ft.Row(spacing=8, controls=[
+                    ft.ElevatedButton(
+                        ref=gemini_btn,
+                        text="Tư vấn AI",
+                        icon=ft.Icons.SMART_TOY,
+                        on_click=_fetch_gemini,
+                        style=ft.ButtonStyle(
+                            bgcolor=SECONDARY, color=ft.Colors.WHITE,
+                            shape=ft.RoundedRectangleBorder(radius=8),
+                        ),
+                    ),
+                    gemini_loading,
+                ]),
+                gemini_text,
+            ],
+        )
+
+        dlg = ft.AlertDialog(
+            modal=True,
+            bgcolor=ft.Colors.with_opacity(0.95, ft.Colors.GREY_900),
+            title=ft.Row(spacing=8, controls=[
+                ft.Icon(ft.Icons.BIOTECH, color=SECONDARY, size=20),
+                ft.Text("Kết quả phân tích AI", size=15,
+                        weight=ft.FontWeight.W_700),
+            ]),
+            content=dlg_content,
+            actions=[
+                ft.TextButton("Đóng", on_click=lambda e: _close_dlg(dlg)),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        if page:
+            try:
+                page.open(dlg)
+            except Exception:
+                page.dialog = dlg
+                dlg.open = True
+                page.update()
+
+    # ── bubble renderer ──────────────────────────────────────────────────────
+
+    def _bubble(msg: dict) -> ft.Control:
+        sender    = msg.get("sender", "farmer")
+        is_me     = sender == "farmer"
+        is_system = sender == "system"
+        ai_result = msg.get("ai_result")
+
+        if is_system:
+            align        = ft.MainAxisAlignment.START
+            bg           = ft.Colors.with_opacity(0.16, SECONDARY)
+            border_col   = ft.Colors.with_opacity(0.25, SECONDARY)
+            avatar_color = SECONDARY
+            avatar_icon  = ft.Icons.SMART_TOY
+        elif is_me:
+            align        = ft.MainAxisAlignment.END
+            bg           = ft.Colors.with_opacity(0.30, PRIMARY)
+            border_col   = ft.Colors.with_opacity(0.40, PRIMARY)
+            avatar_color = PRIMARY
+            avatar_icon  = ft.Icons.PERSON
+        else:
+            align        = ft.MainAxisAlignment.START
+            bg           = ft.Colors.with_opacity(0.16, ft.Colors.WHITE)
+            border_col   = ft.Colors.with_opacity(0.18, ft.Colors.WHITE)
+            avatar_color = SECONDARY
+            avatar_icon  = ft.Icons.SUPPORT_AGENT
+
+        inner: list[ft.Control] = []
+
+        if msg.get("img_src"):
+            inner.append(
+                ft.Image(src=msg["img_src"], width=200, border_radius=10,
+                         fit=ft.ImageFit.COVER)
+            )
+
+        if msg.get("file_name"):
+            inner.append(
+                ft.Container(
+                    padding=ft.padding.symmetric(horizontal=10, vertical=6),
+                    border_radius=8,
+                    bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
+                    content=ft.Row(tight=True, spacing=6, controls=[
+                        ft.Icon(ft.Icons.INSERT_DRIVE_FILE, size=16,
+                                color=SECONDARY),
+                        ft.Text(msg["file_name"], size=12, color=ft.Colors.WHITE,
+                                max_lines=1,
+                                overflow=ft.TextOverflow.ELLIPSIS, expand=True),
+                    ]),
+                )
+            )
+
+        if msg.get("text"):
+            inner.append(
+                ft.Text(msg["text"], size=13, color=ft.Colors.WHITE,
+                        selectable=True)
+            )
+
+        # AI result chips + "Xem chi tiết" button
+        if ai_result:
+            detected  = ai_result.get("diagnosis", {}).get("detected", [])
+            chips: list[ft.Control] = []
+            if detected:
+                for d in detected[:4]:
+                    chips.append(
+                        ft.Container(
+                            padding=ft.padding.symmetric(horizontal=7, vertical=3),
+                            border_radius=12,
+                            bgcolor=ft.Colors.with_opacity(0.22, ft.Colors.RED_400),
+                            border=ft.border.all(
+                                1, ft.Colors.with_opacity(0.40, ft.Colors.RED_300)
+                            ),
+                            content=ft.Row(tight=True, spacing=4, controls=[
+                                ft.Icon(ft.Icons.CORONAVIRUS, size=10,
+                                        color=ft.Colors.RED_300),
+                                ft.Text(d["class"], size=10,
+                                        color=ft.Colors.WHITE),
+                            ]),
+                        )
+                    )
+            else:
+                chips.append(
+                    ft.Container(
+                        padding=ft.padding.symmetric(horizontal=7, vertical=3),
+                        border_radius=12,
+                        bgcolor=ft.Colors.with_opacity(0.18, ft.Colors.GREEN_400),
+                        content=ft.Text("Không phát hiện bệnh", size=10,
+                                        color=ft.Colors.GREEN_300),
+                    )
+                )
+            inner.append(ft.Row(wrap=True, spacing=4, run_spacing=4,
+                                controls=chips))
+            _ar = ai_result  # local capture for closure
+            inner.append(
+                ft.TextButton(
+                    "Xem chi tiết",
+                    icon=ft.Icons.INFO_OUTLINE,
+                    style=ft.ButtonStyle(color=SECONDARY),
+                    on_click=lambda e, ar=_ar: _open_detail_dialog(ar),
+                )
+            )
+
+        inner.append(
+            ft.Text(
+                msg["time"], size=9, color=ft.Colors.WHITE38,
+                text_align=ft.TextAlign.RIGHT if is_me else ft.TextAlign.LEFT,
+            )
+        )
+
+        bubble = ft.Container(
+            padding=ft.padding.symmetric(horizontal=12, vertical=8),
+            border_radius=ft.border_radius.only(
+                top_left=16, top_right=16,
+                bottom_left=4 if is_me else 16,
+                bottom_right=16 if is_me else 4,
+            ),
+            bgcolor=bg,
+            border=ft.border.all(1, border_col),
+            content=ft.Column(spacing=4, tight=True, controls=inner),
+        )
+
+        avatar = ft.Container(
+            width=30, height=30, border_radius=15,
+            bgcolor=ft.Colors.with_opacity(0.20, avatar_color),
+            alignment=ft.alignment.center,
+            content=ft.Icon(avatar_icon, size=16, color=avatar_color),
+        )
+
+        row_ctrls = [bubble, avatar] if is_me else [avatar, bubble]
+        return ft.Row(
+            alignment=align,
+            vertical_alignment=ft.CrossAxisAlignment.END,
+            spacing=6,
+            controls=row_ctrls,
+        )
+
+    # ── chat helpers ─────────────────────────────────────────────────────────
 
     def _append_bubble(msg: dict):
-        """Them bubble moi va update page - an toan voi thread."""
         if list_ref.current and list_ref.current.page:
             list_ref.current.controls.append(_bubble(msg))
             if page:
@@ -135,14 +338,72 @@ def build_health_consulting(page: ft.Page = None):
             return
         msg = {
             "sender": "farmer", "text": txt,
-            "img_src": None, "file_name": None, "time": _now(),
+            "img_src": None, "file_name": None,
+            "time": _now(), "ai_result": None,
         }
         messages.append(msg)
         input_ref.current.value = ""
-        if list_ref.current and list_ref.current.page:
-            list_ref.current.controls.append(_bubble(msg))
-        if page:
-            page.update()
+        _append_bubble(msg)
+
+    def _run_ai_analysis(img_path: str):
+        """Chạy phân tích bệnh AI sau khi ảnh được gửi."""
+        wait_msg = {
+            "sender": "system",
+            "text": "🔍 Đang phân tích ảnh với AI…",
+            "img_src": None, "file_name": None,
+            "time": _now(), "ai_result": None,
+        }
+        messages.append(wait_msg)
+        _append_bubble(wait_msg)
+
+        def _on_result(result_dict: dict):
+            # Xoá bubble "Đang phân tích..."
+            if list_ref.current and list_ref.current.controls:
+                list_ref.current.controls.pop()
+            detected = result_dict["diagnosis"]["detected"]
+            n        = result_dict["diagnosis"]["n_objects"]
+            if detected:
+                names   = ", ".join(d["class"] for d in detected[:3])
+                summary = f"Phát hiện {n} đối tượng — {names}."
+            else:
+                summary = "Không phát hiện dấu hiệu bệnh trong ảnh."
+            ai_msg = {
+                "sender": "system", "text": summary,
+                "img_src": None, "file_name": None,
+                "time": _now(), "ai_result": result_dict,
+            }
+            messages.append(ai_msg)
+            if list_ref.current and list_ref.current.page:
+                list_ref.current.controls.append(_bubble(ai_msg))
+                if page:
+                    try:
+                        page.update()
+                    except Exception:
+                        pass
+
+        def _on_error(err: str):
+            if list_ref.current and list_ref.current.controls:
+                list_ref.current.controls.pop()
+            err_msg = {
+                "sender": "system", "text": f"⚠️ {err}",
+                "img_src": None, "file_name": None,
+                "time": _now(), "ai_result": None,
+            }
+            messages.append(err_msg)
+            if list_ref.current and list_ref.current.page:
+                list_ref.current.controls.append(_bubble(err_msg))
+                if page:
+                    try:
+                        page.update()
+                    except Exception:
+                        pass
+
+        tu_van_ai.analyze_image_async(
+            img_source=img_path,
+            conf_thresh=_AI_MODEL_CONF,
+            on_result=_on_result,
+            on_error=_on_error,
+        )
 
     def _on_pick_image(e: ft.FilePickerResultEvent):
         if not e.files:
@@ -152,33 +413,28 @@ def build_health_consulting(page: ft.Page = None):
             with open(f.path, "rb") as fp:
                 data = base64.b64encode(fp.read()).decode()
             mime = mimetypes.guess_type(f.name)[0] or "image/jpeg"
-            src = f"data:{mime};base64,{data}"
+            src  = f"data:{mime};base64,{data}"
         except Exception:
             src = f.path
         msg = {
             "sender": "farmer", "text": None,
-            "img_src": src, "file_name": None, "time": _now(),
+            "img_src": src, "file_name": None,
+            "time": _now(), "ai_result": None,
         }
         messages.append(msg)
         _append_bubble(msg)
+        _run_ai_analysis(f.path)
 
     def _on_pick_file(e: ft.FilePickerResultEvent):
         if not e.files:
             return
         msg = {
             "sender": "farmer", "text": None,
-            "img_src": None, "file_name": e.files[0].name, "time": _now(),
+            "img_src": None, "file_name": e.files[0].name,
+            "time": _now(), "ai_result": None,
         }
         messages.append(msg)
         _append_bubble(msg)
-
-    def _show_snack(msg: str):
-        if page:
-            try:
-                page.snack_bar = ft.SnackBar(ft.Text(msg), open=True)
-                page.update()
-            except Exception:
-                pass
 
     def _open_camera_live(e):
         """Mo dialog xem camera realtime, cho phep chup anh gui vao chat."""
@@ -228,6 +484,7 @@ def build_health_consulting(page: ft.Page = None):
                     pass
                 return
             try:
+                import ctypes
                 ctypes.windll.kernel32.SetErrorMode(0x8007)
             except Exception:
                 pass
@@ -271,26 +528,31 @@ def build_health_consulting(page: ft.Page = None):
                 pass
 
             _interval = 1.0 / 30  # 30 FPS
-            while not stop_evt.is_set():
-                t0 = time.time()
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                last_frame[0] = frame
+            try:
+                while not stop_evt.is_set():
+                    t0 = time.time()
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    last_frame[0] = frame
 
-                small = cv2.resize(frame, (300, 225))
-                _, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 60])
-                b64 = base64.b64encode(bytes(buf)).decode()
-                live_img.src_base64 = b64
-                try:
-                    if page:
-                        page.update()
-                except Exception:
-                    break
-                elapsed = time.time() - t0
-                wait = _interval - elapsed
-                if wait > 0:
-                    time.sleep(wait)
+                    small = cv2.resize(frame, (300, 225))
+                    _, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 60])
+                    b64 = base64.b64encode(bytes(buf)).decode()
+                    live_img.src_base64 = b64
+                    if stop_evt.is_set():  # không update nữa khi đang dừng
+                        break
+                    try:
+                        if page:
+                            page.update()
+                    except Exception:
+                        break
+                    elapsed = time.time() - t0
+                    wait = _interval - elapsed
+                    if wait > 0:
+                        time.sleep(wait)
+            finally:
+                cap.release()
 
         def _do_capture(e):
             frame = last_frame[0]
@@ -302,11 +564,16 @@ def build_health_consulting(page: ft.Page = None):
             cv2.imwrite(path, frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
             msg = {
                 "sender": "farmer", "text": None,
-                "img_src": path, "file_name": None, "time": _now(),
+                "img_src": path,  # dùng path trực tiếp, không base64 (tránh WebSocket overflow)
+                "file_name": None,
+                "time": _now(), "ai_result": None,
             }
             messages.append(msg)
-            _close_cam(None)
+            # stop_evt đã ngăn stream gọi page.update() thêm → đây là update duy nhất
+            stop_evt.set()
+            dlg.open = False
             _append_bubble(msg)
+            _run_ai_analysis(path)
 
         def _close_cam(e):
             stop_evt.set()
@@ -378,7 +645,7 @@ def build_health_consulting(page: ft.Page = None):
 
     txt_input = ft.TextField(
         ref=input_ref,
-        hint_text="Nhắn tin với chuyên gia...",
+        hint_text="Nhắn tin...",
         expand=True,
         border_radius=20,
         min_lines=1,
@@ -392,6 +659,24 @@ def build_health_consulting(page: ft.Page = None):
         cursor_color=ft.Colors.WHITE,
         content_padding=ft.padding.symmetric(horizontal=14, vertical=10),
         on_submit=_send_text,
+    )
+
+    gemini_key_field = ft.TextField(
+        ref=gemini_key_ref,
+        hint_text="Gemini API key (để lấy tư vấn AI)",
+        border_radius=16,
+        height=36,
+        text_size=11,
+        password=True,
+        can_reveal_password=True,
+        bgcolor=ft.Colors.with_opacity(0.08, ft.Colors.WHITE),
+        border_color=ft.Colors.with_opacity(0.15, ft.Colors.WHITE),
+        focused_border_color=SECONDARY,
+        hint_style=ft.TextStyle(color=ft.Colors.WHITE38, size=11),
+        text_style=ft.TextStyle(color=ft.Colors.WHITE, size=11),
+        cursor_color=ft.Colors.WHITE,
+        content_padding=ft.padding.symmetric(horizontal=10, vertical=4),
+        prefix_icon=ft.Icons.KEY_OUTLINED,
     )
 
     def _attach_btn(icon, tip, color, on_click):
@@ -416,28 +701,35 @@ def build_health_consulting(page: ft.Page = None):
         border=ft.border.only(
             top=ft.BorderSide(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE))
         ),
-        content=ft.Row(
-            spacing=2,
-            vertical_alignment=ft.CrossAxisAlignment.END,
+        content=ft.Column(
+            spacing=4, tight=True,
             controls=[
-                _attach_btn(
-                    ft.Icons.IMAGE_OUTLINED, "Gửi ảnh", SECONDARY,
-                    lambda e: picker_img.pick_files(
-                        allow_multiple=False,
-                        file_type=ft.FilePickerFileType.IMAGE,
-                    ),
+                gemini_key_field,
+                ft.Row(
+                    spacing=2,
+                    vertical_alignment=ft.CrossAxisAlignment.END,
+                    controls=[
+                        _attach_btn(
+                            ft.Icons.IMAGE_OUTLINED, "Gửi ảnh", SECONDARY,
+                            lambda e: picker_img.pick_files(
+                                allow_multiple=False,
+                                file_type=ft.FilePickerFileType.IMAGE,
+                            ),
+                        ),
+                        _attach_btn(
+                            ft.Icons.ATTACH_FILE, "Gửi file", WARNING,
+                            lambda e: picker_file.pick_files(
+                                allow_multiple=False),
+                        ),
+                        _attach_btn(
+                            ft.Icons.CAMERA_ALT_OUTLINED, "Mở camera trực tiếp",
+                            ft.Colors.AMBER_300,
+                            _open_camera_live,
+                        ),
+                        txt_input,
+                        send_btn,
+                    ],
                 ),
-                _attach_btn(
-                    ft.Icons.ATTACH_FILE, "Gửi file", WARNING,
-                    lambda e: picker_file.pick_files(allow_multiple=False),
-                ),
-                _attach_btn(
-                    ft.Icons.CAMERA_ALT_OUTLINED, "Mở camera trực tiếp",
-                    ft.Colors.AMBER_300,
-                    _open_camera_live,
-                ),
-                txt_input,
-                send_btn,
             ],
         ),
     )
@@ -456,7 +748,7 @@ def build_health_consulting(page: ft.Page = None):
                     width=38, height=38, border_radius=19,
                     bgcolor=ft.Colors.with_opacity(0.20, SECONDARY),
                     alignment=ft.alignment.center,
-                    content=ft.Icon(ft.Icons.SUPPORT_AGENT, size=22, color=SECONDARY),
+                    content=ft.Icon(ft.Icons.SMART_TOY, size=22, color=SECONDARY),
                 ),
                 ft.Column(
                     tight=True, spacing=2, expand=True,
@@ -464,7 +756,8 @@ def build_health_consulting(page: ft.Page = None):
                         ft.Text(_EXPERT_NAME, size=14, weight=ft.FontWeight.W_700),
                         ft.Row(tight=True, spacing=5, controls=[
                             ft.Container(width=7, height=7, border_radius=4, bgcolor=PRIMARY),
-                            ft.Text("Đang trực tuyến", size=10, color=ft.Colors.WHITE60),
+                            ft.Text("AI sẵn sàng · conf ≥ 30%", size=10,
+                                    color=ft.Colors.WHITE60),
                         ]),
                     ],
                 ),

@@ -31,10 +31,10 @@
       "phien_ban": "v1.0.0",
       "trang_thai": "offline",
       "mo_ta": "Phat hien dau hieu benh qua hinh anh: ghe, sung, ton thuong da",
-      "duong_dan_file": "",
-      "conf": 0.6,
+      "duong_dan_file": "D:\\DACS\\Con_Bo_Cuoi_App\\models\\runs\\train_yolov8m-seg_500ep\\weights\\best.pt",
+      "conf": 0.05,
       "iou": 0.5,
-      "updated_at": "2026-01-01T00:00:00"
+      "updated_at": "2026-04-15T15:23:00.265563"
     }
   ],
   "next_id": 4
