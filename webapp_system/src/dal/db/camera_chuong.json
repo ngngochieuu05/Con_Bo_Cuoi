@@ -1,0 +1,32 @@
+{
+  "records": [
+    {
+      "id_camera_chuong": 1,
+      "id_chuong": "CHUONG-A",
+      "khu_vuc_chuong": "Khu A",
+      "id_camera": "CAM-01",
+      "id_user": 3,
+      "trang_thai": "online",
+      "updated_at": "2026-04-10T10:45:00"
+    },
+    {
+      "id_camera_chuong": 2,
+      "id_chuong": "CHUONG-B",
+      "khu_vuc_chuong": "Khu B",
+      "id_camera": "CAM-03",
+      "id_user": 3,
+      "trang_thai": "warning",
+      "updated_at": "2026-04-10T10:42:00"
+    },
+    {
+      "id_camera_chuong": 3,
+      "id_chuong": "CHUONG-C",
+      "khu_vuc_chuong": "Khu C",
+      "id_camera": "CAM-07",
+      "id_user": 3,
+      "trang_thai": "offline",
+      "updated_at": "2026-04-10T10:40:00"
+    }
+  ],
+  "next_id": 4
+}

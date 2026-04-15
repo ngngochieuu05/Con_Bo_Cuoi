@@ -1,0 +1,27 @@
+{
+  "records": [
+    {
+      "id_hanh_vi": 1,
+      "ten_hanh_vi": "cow_fight",
+      "bounding_box": {
+        "x_center": 0.5,
+        "y_center": 0.4,
+        "w": 0.3,
+        "h": 0.25
+      },
+      "id_hinh_anh": 1
+    },
+    {
+      "id_hanh_vi": 2,
+      "ten_hanh_vi": "cow_normal",
+      "bounding_box": {
+        "x_center": 0.6,
+        "y_center": 0.5,
+        "w": 0.2,
+        "h": 0.3
+      },
+      "id_hinh_anh": 2
+    }
+  ],
+  "next_id": 3
+}

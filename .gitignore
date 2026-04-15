@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+*.spec
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Models & datasets (large files)
+models/
+
+# Build outputs
+build/
+
+# Logs & temp files
+*.log
+crash_log.txt
+app_stdout.txt
+app_stderr.txt
+cam_snap_*.jpg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flet / Flutter
+*.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies

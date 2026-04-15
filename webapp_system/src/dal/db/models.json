@@ -1,0 +1,41 @@
+{
+  "records": [
+    {
+      "id_model": 1,
+      "ten_mo_hinh": "Nhan dien bo",
+      "loai_mo_hinh": "cattle_detect",
+      "phien_ban": "v1.0.0",
+      "trang_thai": "offline",
+      "mo_ta": "Phat hien & dinh vi bo trong khung hinh (bounding box)",
+      "duong_dan_file": "",
+      "conf": 0.5,
+      "iou": 0.45,
+      "updated_at": "2026-01-01T00:00:00"
+    },
+    {
+      "id_model": 2,
+      "ten_mo_hinh": "Hanh vi bo",
+      "loai_mo_hinh": "behavior",
+      "phien_ban": "v2.1.0",
+      "trang_thai": "online",
+      "mo_ta": "Nhan dien hanh vi: dung, nam, di lai, huc, giao phoi",
+      "duong_dan_file": "models/Dataset/model_22v_behavior.pt",
+      "conf": 0.55,
+      "iou": 0.45,
+      "updated_at": "2026-03-01T08:00:00"
+    },
+    {
+      "id_model": 3,
+      "ten_mo_hinh": "Benh tren bo",
+      "loai_mo_hinh": "disease",
+      "phien_ban": "v1.0.0",
+      "trang_thai": "offline",
+      "mo_ta": "Phat hien dau hieu benh qua hinh anh: ghe, sung, ton thuong da",
+      "duong_dan_file": "",
+      "conf": 0.6,
+      "iou": 0.5,
+      "updated_at": "2026-01-01T00:00:00"
+    }
+  ],
+  "next_id": 4
+}

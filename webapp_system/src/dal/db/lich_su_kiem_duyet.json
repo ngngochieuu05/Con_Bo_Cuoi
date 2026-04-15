@@ -1,0 +1,11 @@
+{
+  "records": [
+    {
+      "id_lich_su": 1,
+      "thoi_gian_duyet": "2026-04-09T16:00:00",
+      "id_user": 2,
+      "id_hinh_anh": 2
+    }
+  ],
+  "next_id": 2
+}
