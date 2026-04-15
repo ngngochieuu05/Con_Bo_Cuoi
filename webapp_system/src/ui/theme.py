@@ -7,6 +7,15 @@ WARNING = "#F2C94C"
 DANGER = "#FF7A7A"
 TEXT_DARK = "#06131B"
 
+# ── Airbnb button tokens ────────────────────────────────────────────────────
+_BTN_NEAR_BLACK  = "#222222"   # primary bg
+_BTN_RAUSCH      = "#ff385c"   # brand accent / hover
+_BTN_DEEP_RAUSCH = "#e00b41"   # secondary hover (pressed)
+_BTN_SURFACE     = "#f2f2f2"   # surface bg
+_BTN_ERROR       = "#c13515"   # danger / error
+_BTN_ERROR_DARK  = "#b32505"   # danger hover
+# ───────────────────────────────────────────────────────────────────────────
+
 GLASS_BG = ft.Colors.with_opacity(0.16, ft.Colors.WHITE)
 GLASS_BORDER = ft.Colors.with_opacity(0.18, ft.Colors.WHITE)
 GLASS_SHADOW = ft.BoxShadow(
@@ -29,21 +38,40 @@ def glass_container(content, width=None, height=None, padding=24, radius=28):
     )
 
 
-def button_style(kind="primary", radius=14):
+def button_style(kind="primary", radius=8):
+    """
+    Airbnb-inspired button style.
+      primary   → near-black #222222, hover → Rausch Red #ff385c
+      secondary → Rausch Red #ff385c, hover → Deep Rausch #e00b41
+      surface   → light #f2f2f2 (circular/utility buttons)
+      warning   → amber (functional, kept as-is)
+      danger    → error red #c13515
+    """
     palette = {
-        "primary": (PRIMARY, ft.Colors.WHITE),
-        "surface": (ft.Colors.with_opacity(0.16, ft.Colors.WHITE), ft.Colors.WHITE),
-        "secondary": (SECONDARY, TEXT_DARK),
-        "warning": (WARNING, TEXT_DARK),
-        "danger": (DANGER, ft.Colors.WHITE),
+        "primary":   (_BTN_NEAR_BLACK,  ft.Colors.WHITE,  _BTN_RAUSCH),
+        "secondary": (_BTN_RAUSCH,      ft.Colors.WHITE,  _BTN_DEEP_RAUSCH),
+        "surface":   (_BTN_SURFACE,     _BTN_NEAR_BLACK,  ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
+        "warning":   (WARNING,          TEXT_DARK,        WARNING),
+        "danger":    (_BTN_ERROR,       ft.Colors.WHITE,  _BTN_ERROR_DARK),
     }
-    bgcolor, text_color = palette.get(kind, palette["primary"])
+    bg, fg, hover = palette.get(kind, palette["primary"])
+
+    border_color = (
+        ft.Colors.with_opacity(0.18, ft.Colors.BLACK)
+        if kind == "surface"
+        else bg
+    )
+
     return ft.ButtonStyle(
-        bgcolor=bgcolor,
-        color=text_color,
+        bgcolor={
+            ft.ControlState.DEFAULT: bg,
+            ft.ControlState.HOVERED: hover,
+        },
+        color=fg,
         shape=ft.RoundedRectangleBorder(radius=radius),
-        side=ft.BorderSide(1, GLASS_BORDER if kind == "surface" else bgcolor),
-        text_style=ft.TextStyle(weight=ft.FontWeight.W_700),
+        side=ft.BorderSide(1, border_color),
+        text_style=ft.TextStyle(weight=ft.FontWeight.W_500),
+        overlay_color=ft.Colors.with_opacity(0.08, ft.Colors.BLACK),
     )
 
 
@@ -313,6 +341,35 @@ def _build_glass_nav_bar(navigation_items, selected_key, on_select):
     )
 
 
+def _build_avatar_btn(page: ft.Page | None, on_profile=None) -> ft.Control:
+    """Circular avatar button shown in the top-right header corner."""
+    b64 = None
+    ho_ten = "?"
+    if page is not None:
+        try:
+            b64 = page.client_storage.get("anh_dai_dien")
+            ho_ten = page.client_storage.get("ho_ten") or "?"
+        except Exception:
+            pass
+    initial = (ho_ten or "?")[0].upper()
+    inner = (
+        ft.Image(src_base64=b64, width=36, height=36, fit=ft.ImageFit.COVER)
+        if b64
+        else ft.Text(initial, size=14, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE)
+    )
+    return ft.Container(
+        width=38, height=38,
+        border_radius=19,
+        bgcolor=ft.Colors.with_opacity(0.30, PRIMARY),
+        border=ft.border.all(2, ft.Colors.with_opacity(0.55, ft.Colors.WHITE)),
+        alignment=ft.alignment.center,
+        clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+        tooltip="Hồ sơ cá nhân",
+        on_click=lambda e: on_profile() if on_profile else None,
+        content=inner,
+    )
+
+
 def build_role_shell(
     role_title: str,
     role_subtitle: str,
@@ -322,6 +379,7 @@ def build_role_shell(
     main_content: ft.Control,
     on_logout,
     page: ft.Page | None = None,
+    on_profile=None,
 ):
     # Đọc is_mobile từ page.data (đặt từ main.py) — đảm bảo nhất quán
     is_mobile = True
@@ -345,11 +403,19 @@ def build_role_shell(
             border=ft.border.only(
                 bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE))
             ),
-            content=ft.Column(
-                spacing=1,
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    ft.Text(role_title, size=15, weight=ft.FontWeight.W_700),
-                    ft.Text(role_subtitle, size=10, color=ft.Colors.WHITE60),
+                    ft.Column(
+                        spacing=1,
+                        tight=True,
+                        controls=[
+                            ft.Text(role_title, size=15, weight=ft.FontWeight.W_700),
+                            ft.Text(role_subtitle, size=10, color=ft.Colors.WHITE60),
+                        ],
+                    ),
+                    _build_avatar_btn(page, on_profile),
                 ],
             ),
         )
@@ -404,22 +470,42 @@ def build_role_shell(
         )
     sidebar_controls.append(ft.Container(expand=True))
 
+    top_bar = ft.Container(
+        padding=ft.padding.only(left=18, right=18, top=10, bottom=10),
+        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+        border=ft.border.only(
+            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.12, ft.Colors.WHITE))
+        ),
+        content=ft.Row(
+            alignment=ft.MainAxisAlignment.END,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[_build_avatar_btn(page, on_profile)],
+        ),
+    )
+
     return build_background(
-        ft.Row(
+        ft.Column(
             expand=True,
+            spacing=0,
             controls=[
-                ft.Container(
-                    width=280,
-                    padding=18,
-                    content=glass_container(
-                        ft.Column(expand=True, spacing=10, controls=sidebar_controls),
-                        padding=20,
-                    ),
-                ),
-                ft.Container(
+                top_bar,
+                ft.Row(
                     expand=True,
-                    padding=ft.padding.only(top=18, right=18, bottom=18),
-                    content=glass_container(main_content, padding=20),
+                    controls=[
+                        ft.Container(
+                            width=280,
+                            padding=18,
+                            content=glass_container(
+                                ft.Column(expand=True, spacing=10, controls=sidebar_controls),
+                                padding=20,
+                            ),
+                        ),
+                        ft.Container(
+                            expand=True,
+                            padding=ft.padding.only(top=14, right=18, bottom=18),
+                            content=glass_container(main_content, padding=20),
+                        ),
+                    ],
                 ),
             ],
         )

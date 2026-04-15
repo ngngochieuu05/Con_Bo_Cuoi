@@ -3,6 +3,7 @@ import flet as ft
 from ui.components.user.framer.dashboard import build_farmer_dashboard
 from ui.components.user.framer.health_consulting import build_health_consulting
 from ui.components.user.framer.live_monitoring import build_live_monitoring
+from ui.components.user.framer.profile_farmer import build_profile_farmer
 from ui.components.user.framer.session_history import build_session_history
 from ui.components.user.framer.settings import build_farmer_settings
 from ui.components.user.framer.utilities import build_farmer_utilities
@@ -35,7 +36,9 @@ def FarmerMainScreen(page: ft.Page, on_logout=None):
         render()
 
     def render():
-        if selected["key"] == "settings":
+        if selected["key"] == "profile":
+            content_holder.content = build_profile_farmer(page, on_back=lambda: select_view("monitoring"))
+        elif selected["key"] == "settings":
             content_holder.content = build_farmer_settings(on_logout=on_logout)
         elif selected["key"] == "consulting":
             content_holder.content = build_health_consulting(page=page)
@@ -49,6 +52,7 @@ def FarmerMainScreen(page: ft.Page, on_logout=None):
             on_select=select_view,
             main_content=content_holder,
             on_logout=on_logout or (lambda: None),
+            on_profile=lambda: select_view("profile"),
             page=page,
         )
         if root.page:

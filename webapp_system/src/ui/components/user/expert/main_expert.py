@@ -2,6 +2,7 @@ import flet as ft
 
 from ui.components.user.expert.consulting_review import build_consulting_review
 from ui.components.user.expert.dashboard import build_expert_dashboard
+from ui.components.user.expert.profile_expert import build_profile_expert
 from ui.components.user.expert.raw_data_review import build_raw_data_review
 from ui.components.user.expert.settings import build_expert_settings
 from ui.components.user.expert.utilities import build_expert_utilities
@@ -32,7 +33,9 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
         render()
 
     def render():
-        if selected["key"] == "settings":
+        if selected["key"] == "profile":
+            content_holder.content = build_profile_expert(page, on_back=lambda: select_view("dashboard"))
+        elif selected["key"] == "settings":
             content_holder.content = build_expert_settings(on_logout=on_logout)
         else:
             content_holder.content = views.get(selected["key"], build_expert_dashboard)()
@@ -44,6 +47,7 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
             on_select=select_view,
             main_content=content_holder,
             on_logout=on_logout or (lambda: None),
+            on_profile=lambda: select_view("profile"),
             page=page,
         )
         if root.page:

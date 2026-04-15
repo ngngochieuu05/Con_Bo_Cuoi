@@ -50,17 +50,17 @@ def main(page: ft.Page):
         else:  # farmer
             control = FarmerMainScreen(page, on_logout=logout_to_login)
 
-        page.controls.clear()
+        page.clean()
         page.add(control)
         page.update()
 
     def show_forgot_password():
-        page.controls.clear()
+        page.clean()
         page.add(ForgotPasswordScreen(on_back_to_login=show_login))
         page.update()
 
     def show_login():
-        page.controls.clear()
+        page.clean()
         page.add(LoginScreen(
             page=page,
             on_login_success=show_dashboard,
@@ -70,7 +70,7 @@ def main(page: ft.Page):
         page.update()
 
     def show_register():
-        page.controls.clear()
+        page.clean()
         page.add(RegisterScreen(page=page, on_register_success=show_dashboard, on_back_to_login=show_login))
         page.update()
 
