@@ -54,7 +54,7 @@ def _bubble(msg: dict) -> ft.Control:
             ft.Image(
                 src=msg["img_src"],
                 width=200, border_radius=10,
-                fit=ft.ImageFit.COVER,
+                fit="cover",
             )
         )
 
@@ -103,7 +103,7 @@ def _bubble(msg: dict) -> ft.Control:
     avatar = ft.Container(
         width=30, height=30, border_radius=15,
         bgcolor=ft.Colors.with_opacity(0.20, avatar_color),
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment.CENTER,
         content=ft.Icon(avatar_icon, size=16, color=avatar_color),
     )
 
@@ -188,7 +188,7 @@ def build_health_consulting(page: ft.Page = None):
         live_img = ft.Image(
             width=300, height=225,
             border_radius=8,
-            fit=ft.ImageFit.CONTAIN,
+            fit="contain",
             src_base64="",
             visible=False,
         )
@@ -197,7 +197,7 @@ def build_health_consulting(page: ft.Page = None):
             width=300, height=225,
             border_radius=8,
             bgcolor=ft.Colors.with_opacity(0.15, ft.Colors.WHITE),
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment.CENTER,
             content=ft.Column(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 tight=True, spacing=8,
@@ -404,7 +404,7 @@ def build_health_consulting(page: ft.Page = None):
     send_btn = ft.Container(
         width=40, height=40, border_radius=20,
         bgcolor=PRIMARY,
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment.CENTER,
         ink=True,
         on_click=_send_text,
         content=ft.Icon(ft.Icons.SEND_ROUNDED, size=18, color=ft.Colors.WHITE),
@@ -455,7 +455,7 @@ def build_health_consulting(page: ft.Page = None):
                 ft.Container(
                     width=38, height=38, border_radius=19,
                     bgcolor=ft.Colors.with_opacity(0.20, SECONDARY),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     content=ft.Icon(ft.Icons.SUPPORT_AGENT, size=22, color=SECONDARY),
                 ),
                 ft.Column(

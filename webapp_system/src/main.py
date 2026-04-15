@@ -41,7 +41,7 @@ def main(page: ft.Page):
         if normalized_role not in {"admin", "expert", "farmer"}:
             normalized_role = "farmer"
 
-        page.client_storage.set("user_role", normalized_role)
+        page.data["user_role"] = normalized_role
 
         if normalized_role == "admin":
             control = AdminMainScreen(page, on_logout=logout_to_login)
@@ -79,10 +79,7 @@ def main(page: ft.Page):
 
     # Xóa session cũ (nếu có) và luôn bắt đầu từ login
     for _k in ("user_role", "user_id", "ho_ten"):
-        try:
-            page.client_storage.remove(_k)
-        except Exception:
-            pass
+        page.data.pop(_k, None)
     show_login()
 
 

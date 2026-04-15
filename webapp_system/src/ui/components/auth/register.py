@@ -46,9 +46,9 @@ def RegisterScreen(page: ft.Page = None, on_register_success=None, on_back_to_lo
         role = role_dropdown.value or "farmer"
         user = create_user(uname, pwd, role, hoten)
         if page:
-            page.client_storage.set("user_role", role)
-            page.client_storage.set("user_id", str(user.get("id_user", "")))
-            page.client_storage.set("ho_ten", hoten)
+            page.data["user_role"] = role
+            page.data["user_id"] = str(user.get("id_user", ""))
+            page.data["ho_ten"] = hoten
         if on_register_success:
             on_register_success(role)
 

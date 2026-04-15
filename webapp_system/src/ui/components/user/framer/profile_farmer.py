@@ -7,7 +7,7 @@ from ui.theme import button_style, glass_container, inline_field, PRIMARY
 
 
 def build_profile_farmer(page: ft.Page, on_back=None):
-    user_id = int(page.client_storage.get("user_id") or 0)
+    user_id = int(page.data.get("user_id") or 0)
     user = repo.get_user_by_id(user_id) or {}
     avatar_b64 = {"val": user.get("anh_dai_dien", "") or ""}
 
@@ -17,7 +17,7 @@ def build_profile_farmer(page: ft.Page, on_back=None):
         border_radius=48,
         bgcolor=ft.Colors.with_opacity(0.30, PRIMARY),
         border=ft.border.all(2.5, ft.Colors.with_opacity(0.55, ft.Colors.WHITE)),
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment.CENTER,
         clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
     )
     msg = ft.Text("", size=12)
@@ -32,7 +32,7 @@ def build_profile_farmer(page: ft.Page, on_back=None):
         b64 = avatar_b64["val"]
         if b64:
             avatar_img.content = ft.Image(
-                src_base64=b64, width=96, height=96, fit=ft.ImageFit.COVER,
+                src_base64=b64, width=96, height=96, fit="cover",
             )
         else:
             label = (user.get("ho_ten") or "?")[0].upper()
@@ -88,9 +88,9 @@ def build_profile_farmer(page: ft.Page, on_back=None):
         updates = {"ho_ten": ho_ten}
         if avatar_b64["val"]:
             updates["anh_dai_dien"] = avatar_b64["val"]
-            page.client_storage.set("anh_dai_dien", avatar_b64["val"])
+            page.data["anh_dai_dien"] = avatar_b64["val"]
         repo.update_user(user_id, updates)
-        page.client_storage.set("ho_ten", ho_ten)
+        page.data["ho_ten"] = ho_ten
         snack("Đã lưu thông tin thành công!")
 
     def save_password(e):

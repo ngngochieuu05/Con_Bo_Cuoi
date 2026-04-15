@@ -28,7 +28,7 @@ class LiveMonitoringController:
 
         self.stream_image = ft.Image(
             src="",
-            fit=ft.ImageFit.CONTAIN,
+            fit="contain",
             border_radius=12,
             error_content=ft.Column(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -48,6 +48,15 @@ class LiveMonitoringController:
         self.snapshot_btn = ft.OutlinedButton("Chụp ảnh", icon=ft.Icons.CAMERA_ALT, on_click=self.take_snapshot, visible=False)
 
         self._build_ui()
+
+    def _safe_update(self, *controls):
+        """Call .update() only when the control is already in the page tree."""
+        for ctrl in controls:
+            try:
+                if ctrl.page:
+                    ctrl.update()
+            except RuntimeError:
+                pass
 
     def _build_ui(self):
         self.root.controls = [
@@ -69,7 +78,7 @@ class LiveMonitoringController:
                             height=220,
                             border_radius=12,
                             bgcolor=ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
-                            alignment=ft.alignment.center,
+                            alignment=ft.Alignment.CENTER,
                             content=self.stream_image,
                         ),
                         ft.Row(controls=[self.connect_btn, self.snapshot_btn]),
@@ -123,7 +132,7 @@ class LiveMonitoringController:
         self.status_chip.content.value = "Trực tuyến" if online else "Ngoại tuyến"
         self.status_chip.bgcolor = ft.Colors.with_opacity(0.2, PRIMARY if online else DANGER)
         self.status_chip.border = ft.border.all(1, ft.Colors.with_opacity(0.4, PRIMARY if online else DANGER))
-        self.status_chip.update()
+        self._safe_update(self.status_chip)
 
     def _append_log(self, time_label: str, message: str, kind: str = "info"):
         color = DANGER if kind == "warning" else (PRIMARY if kind == "success" else ft.Colors.WHITE70)
@@ -143,7 +152,7 @@ class LiveMonitoringController:
         )
         if len(self.log_rows.controls) > 8:
             self.log_rows.controls.pop()
-        self.log_rows.update()
+        self._safe_update(self.log_rows)
 
     def _apply_dashboard_data(self, data: dict, offline: bool = False):
         self.total_cows.value = str(data.get("total_cows", "--"))
@@ -151,8 +160,7 @@ class LiveMonitoringController:
         self.camera_online.value = str(data.get("cameras_online", "--"))
         self.last_update.value = f"Cập nhật: {data.get('timestamp', '')}"
 
-        for ctrl in [self.total_cows, self.active_alerts, self.camera_online, self.last_update]:
-            ctrl.update()
+        self._safe_update(self.total_cows, self.active_alerts, self.camera_online, self.last_update)
 
         recent_alerts = data.get("recent_alerts", [])[-3:]
         for alert in recent_alerts:
@@ -175,7 +183,7 @@ class LiveMonitoringController:
         self._polling = True
         self.stream_image.src = stream_url(self.server_url)
         self.stream_image.src_base64 = None
-        self.stream_image.update()
+        self._safe_update(self.stream_image)
 
         def _poll_loop():
             while self._polling and self.is_connected:
@@ -188,7 +196,7 @@ class LiveMonitoringController:
                     self._set_status(False)
                     self.connect_btn.text = "Thử lại"
                     self.connect_btn.icon = ft.Icons.WIFI
-                    self.connect_btn.update()
+                    self._safe_update(self.connect_btn)
                     self._append_log(time.strftime("%H:%M"), f"Mất kết nối: {str(err)[:60]}", "warning")
                     self._load_offline_cache()
                     break
@@ -204,14 +212,13 @@ class LiveMonitoringController:
             self.connect_btn.text = "Kết nối máy chủ"
             self.connect_btn.icon = ft.Icons.WIFI
             self.snapshot_btn.visible = False
-            self.connect_btn.update()
-            self.snapshot_btn.update()
+            self._safe_update(self.connect_btn, self.snapshot_btn)
             self._append_log(time.strftime("%H:%M"), "Đã ngắt kết nối máy chủ", "info")
             return
 
         self.connect_btn.text = "Đang kết nối..."
         self.connect_btn.disabled = True
-        self.connect_btn.update()
+        self._safe_update(self.connect_btn)
 
         def _connect():
             try:
@@ -235,8 +242,7 @@ class LiveMonitoringController:
                 self._load_offline_cache()
             finally:
                 self.connect_btn.disabled = False
-                self.connect_btn.update()
-                self.snapshot_btn.update()
+                self._safe_update(self.connect_btn, self.snapshot_btn)
 
         threading.Thread(target=_connect, daemon=True).start()
 
@@ -250,12 +256,13 @@ class LiveMonitoringController:
                 b64_data = fetch_snapshot_base64(self.server_url)
                 self.stream_image.src = ""
                 self.stream_image.src_base64 = b64_data
-                self.stream_image.update()
+                self._safe_update(self.stream_image)
                 self._append_log(time.strftime("%H:%M"), "Đã chụp ảnh từ camera", "success")
             except Exception as err:
                 self._append_log(time.strftime("%H:%M"), f"Lỗi chụp ảnh: {str(err)[:60]}", "warning")
 
         threading.Thread(target=_snapshot, daemon=True).start()
+
 
 
 def build_live_monitoring():
