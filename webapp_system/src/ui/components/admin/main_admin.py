@@ -3,6 +3,7 @@ import flet as ft
 from ui.components.admin.dashboard import build_admin_dashboard
 from ui.components.admin.model_management import build_model_management
 from ui.components.admin.oa_management import build_oa_management
+from ui.components.admin.profile_admin import build_profile_admin
 from ui.components.admin.settings import build_admin_settings
 from ui.components.admin.user_management import build_user_management
 from ui.theme import build_role_shell
@@ -33,7 +34,9 @@ def AdminMainScreen(page: ft.Page, on_logout=None):
 
     def render():
         view_builder = views.get(selected["key"], build_admin_dashboard)
-        if selected["key"] == "settings":
+        if selected["key"] == "profile":
+            content_holder.content = build_profile_admin(page, on_back=lambda: select_view("dashboard"))
+        elif selected["key"] == "settings":
             content_holder.content = build_admin_settings(on_logout=on_logout)
         else:
             content_holder.content = view_builder()
@@ -45,6 +48,7 @@ def AdminMainScreen(page: ft.Page, on_logout=None):
             on_select=select_view,
             main_content=content_holder,
             on_logout=on_logout or (lambda: None),
+            on_profile=lambda: select_view("profile"),
             page=page,
         )
         if root.page:
