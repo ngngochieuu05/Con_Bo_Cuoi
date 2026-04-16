@@ -115,3 +115,8 @@ docs/research/
 AGENTS.md
 GEMINI.md
 portable-manifest.json
+docs/hide_setting.md
+docs/team_agent.md
+docs/Tool_guide.md
+docs/hook_usage.md
+docs/add_skill.md
