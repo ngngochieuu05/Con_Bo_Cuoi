@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import io
+import os
 import threading
 import uuid
 from pathlib import Path
@@ -24,6 +25,21 @@ CLASS_COLORS = [
 # ─── Module-level model cache (load 1 lần, dùng nhiều lần) ──────────────────
 _model_cache: dict[str, Any] = {}
 _cache_lock = threading.Lock()
+
+
+def _get_configured_mode() -> str:
+    """
+    Đọc YOLO device mode live: config file > env var > 'cpu' default.
+    Trả về lowercase string đã strip.
+    """
+    try:
+        from bll.services.monitor_service import load_config
+        mode = str(load_config().get("yolo_model_mode") or "").strip().lower()
+        if mode in ("cpu", "gpu", "cuda", "auto"):
+            return mode
+    except Exception:
+        pass
+    return os.getenv("YOLO_DEVICE_MODE", "cpu").strip().lower()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -48,6 +64,42 @@ def _np():
 def _YOLO():
     from ultralytics import YOLO
     return YOLO
+
+
+def _resolve_device(device_mode: str | None = None) -> str:
+    """
+    Chuẩn hoá device cho Ultralytics.
+
+    Modes:
+    - cpu: luôn CPU (default)
+    - gpu/cuda: ép GPU=0, fallback CPU nếu CUDA không khả dụng
+    - auto: ưu tiên CPU, fallback GPU (user-specified semantics)
+    - "0", "0,1", v.v.: giữ nguyên (multi-GPU)
+
+    Nếu device_mode là None/empty → đọc live từ config (_get_configured_mode).
+    """
+    raw = str(device_mode or "").strip().strip("\"'").lower()
+    mode = raw or _get_configured_mode()
+
+    if mode == "cpu":
+        return "cpu"
+
+    if mode in ("gpu", "cuda"):
+        try:
+            import torch
+            if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                return "0"
+        except Exception:
+            pass
+        return "cpu"
+
+    if mode == "auto":
+        # User spec: prefer CPU, fallback GPU.
+        # Vì CPU luôn available → thực tế auto ≡ cpu.
+        return "cpu"
+
+    # Giá trị hợp lệ khác (vd "0", "0,1") giữ nguyên
+    return mode
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -76,7 +128,8 @@ def load_model(model_path: str, task: str = "segment") -> Any:
     # Warm-up BẮT BUỘC — tránh ORT tạo lại session khi predict thật
     np = _np()
     dummy = np.zeros((640, 640, 3), dtype=np.uint8)
-    model.predict(source=dummy, imgsz=640, device="0", verbose=False)
+    warmup_device = _resolve_device(None)  # đọc live từ config
+    model.predict(source=dummy, imgsz=640, device=warmup_device, verbose=False)
 
     with _cache_lock:
         _model_cache[model_path] = model
@@ -121,19 +174,28 @@ def clear_model_cache() -> None:
 # PUBLIC: INFERENCE
 # ─────────────────────────────────────────────────────────────────────────────
 
-def run_inference(model, source, conf: float = 0.01, iou: float = 0.45,
-                  imgsz: int = 640, device: str = "0", half: bool = False):
+
+def run_inference(
+    model,
+    source,
+    conf: float = 0.01,
+    iou: float = 0.45,
+    imgsz: int = 640,
+    device: str = "auto",
+    half: bool = False,
+):
     """
     Chạy YOLOv8 inference một lần với conf cố định.
     Dùng nội bộ bởi predict_dynamic_conf().
     """
+    resolved_device = _resolve_device(device)
     return model.predict(
         source=source,
         conf=conf,
         iou=iou,
         imgsz=imgsz,
-        device=device,
-        half=half and device != "cpu",
+        device=resolved_device,
+        half=half and resolved_device != "cpu",
         save=False,
         verbose=False,
     )[0]
@@ -147,7 +209,7 @@ def predict_dynamic_conf(
     step: float = 0.05,
     iou: float = 0.45,
     imgsz: int = 640,
-    device: str = "0",
+    device: str = "auto",
 ):
     """
     Tự động hạ Confidence Score cho đến khi tìm thấy box/mask.
@@ -418,12 +480,13 @@ def call_gemini_async(api_key: str, prompt: str,
 # PUBLIC: HIGH-LEVEL API (dùng trực tiếp từ UI layer)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def analyze_image_async(
-    img_source,             # str path | np.ndarray | bytes
+    img_source,  # str path | np.ndarray | bytes
     conf_thresh: float,
-    on_result,              # callback(result_dict: dict)
-    on_error,               # callback(msg: str)
-    device: str = "0",
+    on_result,  # callback(result_dict: dict)
+    on_error,  # callback(msg: str)
+    device: str = "auto",
     imgsz: int = 640,
 ) -> None:
     """
