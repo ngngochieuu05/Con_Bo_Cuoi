@@ -5,6 +5,7 @@ from ui.components.admin.model_management import build_model_management
 from ui.components.admin.oa_management import build_oa_management
 from ui.components.admin.profile_admin import build_profile_admin
 from ui.components.admin.settings import build_admin_settings
+from ui.components.admin.train_management import build_train_management
 from ui.components.admin.user_management import build_user_management
 from ui.theme import build_role_shell
 
@@ -14,6 +15,7 @@ def AdminMainScreen(page: ft.Page, on_logout=None):
         "dashboard": build_admin_dashboard,
         "users": build_user_management,
         "models": build_model_management,
+        "train": build_train_management,
         "analytics": build_oa_management,
         "settings": build_admin_settings,
     }
@@ -21,6 +23,7 @@ def AdminMainScreen(page: ft.Page, on_logout=None):
         ("dashboard", "Tổng quan", "DASHBOARD"),
         ("users", "Tài khoản", "GROUP"),
         ("models", "Mô hình", "SMART_TOY"),
+        ("train", "Train AI", "MODEL_TRAINING"),
         ("analytics", "Thống kê", "ANALYTICS"),
         ("settings", "Cài đặt", "SETTINGS"),
     ]

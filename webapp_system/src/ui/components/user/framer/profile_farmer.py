@@ -2,13 +2,13 @@ import base64
 
 import flet as ft
 
-import dal.tai_khoan_repo as repo
+from bll.services.auth_service import get_user_by_id, update_profile, change_password_safe
 from ui.theme import button_style, glass_container, inline_field, PRIMARY
 
 
 def build_profile_farmer(page: ft.Page, on_back=None):
-    user_id = int(page.data.get("user_id") or 0)
-    user = repo.get_user_by_id(user_id) or {}
+    user_id = int(page.client_storage.get("user_id") or 0)
+    user = get_user_by_id(user_id) or {}
     avatar_b64 = {"val": user.get("anh_dai_dien", "") or ""}
 
     # ── Avatar widget ──────────────────────────────────────────────────────
@@ -88,9 +88,9 @@ def build_profile_farmer(page: ft.Page, on_back=None):
         updates = {"ho_ten": ho_ten}
         if avatar_b64["val"]:
             updates["anh_dai_dien"] = avatar_b64["val"]
-            page.data["anh_dai_dien"] = avatar_b64["val"]
-        repo.update_user(user_id, updates)
-        page.data["ho_ten"] = ho_ten
+            page.client_storage.set("anh_dai_dien", avatar_b64["val"])
+        update_profile(user_id, updates)
+        page.client_storage.set("ho_ten", ho_ten)
         snack("Đã lưu thông tin thành công!")
 
     def save_password(e):
@@ -101,17 +101,14 @@ def build_profile_farmer(page: ft.Page, on_back=None):
         if new != cfm:
             snack("Mật khẩu mới không khớp.", error=True)
             return
-        if len(new) < 6:
-            snack("Mật khẩu mới phải ít nhất 6 ký tự.", error=True)
+        ok, msg_txt = change_password_safe(user_id, old, new)
+        if not ok:
+            snack(msg_txt, error=True)
             return
-        if not repo.authenticate(user.get("ten_dang_nhap", ""), old):
-            snack("Mật khẩu hiện tại không đúng.", error=True)
-            return
-        repo.change_password(user_id, new)
         for tf in (tf_old_pw, tf_new_pw, tf_cfm_pw):
             tf.value = ""
         page.update()
-        snack("Đã đổi mật khẩu thành công!")
+        snack(msg_txt)
 
     # ── Layout ────────────────────────────────────────────────────────────
     return ft.Column(

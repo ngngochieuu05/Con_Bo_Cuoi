@@ -9,8 +9,8 @@ from ui.theme import (
     glass_container, status_badge, button_style,
     inline_field, section_title, empty_state, fmt_dt,
 )
-from dal.model_repo import (
-    get_all_models, update_model_status, update_model_config, update_model,
+from bll.admin.model_management import (
+    list_models as get_all_models, update_model_status, update_model_config, update_model,
 )
 
 _LOAI_LABEL = {

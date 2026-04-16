@@ -4,11 +4,13 @@ from ui.theme import (
     glass_container, status_badge, button_style,
     inline_field, section_title, empty_state, fmt_dt,
 )
-from dal.tai_khoan_repo import (
-    get_all_users, create_user, delete_user,
-    get_user_by_username, update_user, change_password,
+from bll.admin.user_management import (
+    list_users as get_all_users, create_user, delete_user,
+    reset_password as change_password, update_user, get_user_by_username,
 )
-from dal.model_repo import get_all_models, update_model_config, update_model_status
+from bll.admin.model_management import (
+    list_models as get_all_models, update_model_config, update_model_status,
+)
 
 _MODEL_META = {
     "cattle_detect": ("Nhận diện bò",  ft.Icons.PETS,           PRIMARY),
