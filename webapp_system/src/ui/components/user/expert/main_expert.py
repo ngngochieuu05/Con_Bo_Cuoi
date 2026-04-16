@@ -37,6 +37,8 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
             content_holder.content = build_profile_expert(page, on_back=lambda: select_view("dashboard"))
         elif selected["key"] == "settings":
             content_holder.content = build_expert_settings(on_logout=on_logout)
+        elif selected["key"] == "consulting":
+            content_holder.content = build_consulting_review(page=page)
         else:
             content_holder.content = views.get(selected["key"], build_expert_dashboard)()
         root.content = build_role_shell(

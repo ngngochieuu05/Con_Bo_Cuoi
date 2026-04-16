@@ -4,10 +4,9 @@ from ui.theme import (
     data_table, metric_card, status_badge, glass_container, fmt_dt, section_title,
     empty_state,
 )
-from dal.tai_khoan_repo import count_users
-from dal.model_repo import count_online
-from dal.canh_bao_repo import count_open, get_all as get_all_alerts
-from dal.camera_chuong_repo import get_all_cameras
+from bll.admin.dashboard_service import (
+    get_dashboard_stats, get_recent_alerts, get_all_cameras_info,
+)
 
 
 _CAM_STATUS = {
@@ -32,9 +31,10 @@ _ALERT_STATUS = {
 
 def build_admin_dashboard():
     # ── metrics ───────────────────────────────────────────────────────────
-    total_users   = count_users()
-    online_models = count_online()
-    open_alerts   = count_open()
+    stats         = get_dashboard_stats()
+    total_users   = stats["users"]
+    online_models = stats["models_online"]
+    open_alerts   = stats["alerts_open"]
 
     metric_row = ft.Row(
         spacing=8,
@@ -46,7 +46,7 @@ def build_admin_dashboard():
     )
 
     # ── camera table ──────────────────────────────────────────────────────
-    cameras = get_all_cameras()
+    cameras = get_all_cameras_info()
     cam_rows = []
     for cam in cameras:
         st = cam.get("trang_thai", "offline")
@@ -68,7 +68,7 @@ def build_admin_dashboard():
     ])
 
     # ── recent alerts ─────────────────────────────────────────────────────
-    alerts = sorted(get_all_alerts(), key=lambda a: a.get("created_at", ""), reverse=True)[:5]
+    alerts = sorted(get_recent_alerts(), key=lambda a: a.get("created_at", ""), reverse=True)[:5]
     alert_rows = []
     for a in alerts:
         loai = _ALERT_LABEL.get(a.get("loai_canh_bao", ""), a.get("loai_canh_bao", "—"))

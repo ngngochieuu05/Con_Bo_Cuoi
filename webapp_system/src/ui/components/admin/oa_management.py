@@ -6,8 +6,7 @@ from ui.theme import (
     glass_container, metric_card, status_badge,
     data_table, section_title, empty_state, fmt_dt,
 )
-from dal.canh_bao_repo import get_all as get_all_alerts, resolve_alert
-from dal.camera_chuong_repo import get_all_cameras
+from bll.admin.oa_management import get_all_alerts, resolve_alert, get_all_cameras
 
 _ALERT_LABEL = {
     "cow_fight": "Va chạm",
