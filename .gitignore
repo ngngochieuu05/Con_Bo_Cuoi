@@ -88,7 +88,7 @@ claude/skills/ai-multimodal/assets/demo-*.claude/session-state/*.tmp
 # Showoff/marketing assets (images, showcases)
 assets/
 
-# External repos for study/reference
+# External repos for study/referen/ce
 external/
 
 # Git worktrees (local development only)
@@ -120,3 +120,9 @@ docs/team_agent.md
 docs/Tool_guide.md
 docs/hook_usage.md
 docs/add_skill.md
+.mcp.json
+models/
+kanban.cmd
+.husky/
+.github/workflows/
+
