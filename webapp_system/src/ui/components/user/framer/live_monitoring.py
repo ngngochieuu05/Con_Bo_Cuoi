@@ -28,7 +28,7 @@ class LiveMonitoringController:
 
         self.stream_image = ft.Image(
             src="",
-            fit=ft.ImageFit.CONTAIN,
+            fit="contain",
             border_radius=12,
             error_content=ft.Column(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -78,7 +78,7 @@ class LiveMonitoringController:
                             height=220,
                             border_radius=12,
                             bgcolor=ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
-                            alignment=ft.alignment.center,
+                            alignment=ft.Alignment.CENTER,
                             content=self.stream_image,
                         ),
                         ft.Row(controls=[self.connect_btn, self.snapshot_btn]),

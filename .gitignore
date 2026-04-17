@@ -1,42 +1,122 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
-*.egg
-*.egg-info/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
 dist/
-*.spec
+bin/
 
-# Virtual environment
-.venv/
-venv/
-env/
+# production
+/build
 
-# Models & datasets (large files)
-models/
-
-# Build outputs
-build/
-
-# Logs & temp files
-*.log
-crash_log.txt
-app_stdout.txt
-app_stderr.txt
-cam_snap_*.jpg
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
+# misc
 .DS_Store
-Thumbs.db
+*.pem
 
-# Flet / Flutter
-*.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# semantic-release
+.nyc_output
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# flutter
+.dart_tool
+build
+GoogleService-Info.plist
+
+repomix-output.xml
+.serena/cache
+plans/**/*
+!plans/templates/*
+screenshots/*
+docs/screenshots/*
+logs.txt
+test-ck
+__pycache__
+
+# CK meta commands
+prompt.md
+ck.md
+
+# Generated runtime layout for release/install smoke tests
+/.claude/
+# But track repo-level rules that Claude Code reads
+!/.claude/rules/
+
+# Local-only state inside tracked claude source
+claude/agent-memory/
+claude/hooks/.logs/
+claude/session-state/latest.md
+claude/session-state/archive/
+claude/settings.bak.json
+claude/skills/ai-multimodal/assets/demo-*.claude/session-state/*.tmp
+
+# Gemini CLI settings (symlink to staged .claude/.mcp.json)
+.gemini/settings.json
+# Showoff/marketing assets (images, showcases)
+assets/
+
+# External repos for study/reference
+external/
+
+# Git worktrees (local development only)
+worktrees/
+
+# Generated OpenCode backup from scripts/generate-opencode.py --force
+.opencode.backup/
+
+
+.agents/
+.claude-archived/
+.claude/
+claude/
+scripts/
+.history/
+docs/referecences
+docs/research/
+
+.coverage
+.env.example
+.repomixignore
+.releaserc.cjs
+.commitlintrc.json
+AGENTS.md
+GEMINI.md
+portable-manifest.json
+docs/hide_setting.md
+docs/team_agent.md
+docs/Tool_guide.md
+docs/hook_usage.md
+docs/add_skill.md

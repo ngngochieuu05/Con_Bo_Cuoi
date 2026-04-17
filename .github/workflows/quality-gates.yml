@@ -1,0 +1,37 @@
+name: Quality Gates
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+  metadata-check:
+    name: Metadata Deletions Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch for diff baseline
+        run: git fetch origin "$GITHUB_BASE_REF"
+
+      - name: Check metadata deletions
+        run: node scripts/check-metadata-deletions.js
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+
+  skill-cross-ref-lint:
+    name: Skill Cross-Reference Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check skill cross-references
+        run: node scripts/check-skill-cross-refs.js

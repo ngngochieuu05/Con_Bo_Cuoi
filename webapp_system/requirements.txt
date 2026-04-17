@@ -1,0 +1,35 @@
+# ===========================
+# UI Framework
+# ===========================
+flet==0.28.3
+flet-desktop==0.28.3          # Desktop app runner, phải khớp version với flet
+
+# ===========================
+# Computer Vision & AI
+# ===========================
+opencv-python>=4.13.0.92      # Camera capture, frame processing, letterboxing
+numpy>=2.4.4                   # Array ops cho OpenCV và YOLO inference
+
+# YOLO / Deep Learning — package lớn (~3–5 GB), cài riêng tùy môi trường:
+#   CPU-only : pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   CUDA 12.x: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Sau đó: pip install ultralytics
+ultralytics                    # YOLOv8/v11 model management
+torch                          # Deep learning backend (CPU hoặc CUDA)
+torchvision                    # Image transforms cho torch pipeline
+
+# ===========================
+# Image Processing
+# ===========================
+Pillow>=12.2.0                 # Xử lý ảnh: resize, encode/decode cho avatar upload
+
+# ===========================
+# HTTP / API Calls
+# ===========================
+requests>=2.33.1               # Gọi REST API tới AI server (fetch_dashboard, snapshot)
+
+# ===========================
+# Config & Environment
+# ===========================
+PyYAML                         # Đọc file cấu hình .yaml/.yml nếu cần
+python-dotenv>=1.2.1           # Load biến môi trường từ file .env

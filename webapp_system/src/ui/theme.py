@@ -124,7 +124,7 @@ def section_title(icon_name: str, text: str, subtitle: str = "") -> ft.Control:
 def empty_state(text: str = "Không có dữ liệu") -> ft.Control:
     return ft.Container(
         padding=24,
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment.CENTER,
         content=ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             tight=True,
@@ -255,10 +255,10 @@ def build_background(content: ft.Control):
         controls=[
             ft.Container(
                 expand=True,
-                image=ft.DecorationImage(src="backround.png", fit=ft.ImageFit.COVER),
+                image=ft.DecorationImage(src="backround.png", fit="cover"),
                 gradient=ft.LinearGradient(
-                    begin=ft.alignment.top_left,
-                    end=ft.alignment.bottom_right,
+                    begin=ft.Alignment.TOP_LEFT,
+                    end=ft.Alignment.BOTTOM_RIGHT,
                     colors=["#0B1E2A99", "#17384Acc"],
                 ),
             ),
@@ -353,7 +353,7 @@ def _build_avatar_btn(page: ft.Page | None, on_profile=None) -> ft.Control:
             pass
     initial = (ho_ten or "?")[0].upper()
     inner = (
-        ft.Image(src_base64=b64, width=36, height=36, fit=ft.ImageFit.COVER)
+        ft.Image(src_base64=b64, width=36, height=36, fit="cover")
         if b64
         else ft.Text(initial, size=14, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE)
     )
@@ -362,7 +362,7 @@ def _build_avatar_btn(page: ft.Page | None, on_profile=None) -> ft.Control:
         border_radius=19,
         bgcolor=ft.Colors.with_opacity(0.30, PRIMARY),
         border=ft.border.all(2, ft.Colors.with_opacity(0.55, ft.Colors.WHITE)),
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment.CENTER,
         clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
         tooltip="Hồ sơ cá nhân",
         on_click=lambda e: on_profile() if on_profile else None,
@@ -577,7 +577,7 @@ def build_auth_shell(title: str, description: str, form_controls: list[ft.Contro
         right=12,
         width=80,
         height=80,
-        content=ft.Image(src="logo.png", fit=ft.ImageFit.CONTAIN),
+        content=ft.Image(src="logo.png", fit="contain"),
     )
 
     return build_background(
@@ -586,7 +586,7 @@ def build_auth_shell(title: str, description: str, form_controls: list[ft.Contro
             controls=[
                 ft.Container(
                     expand=True,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     padding=ft.padding.symmetric(horizontal=16, vertical=36),
                     content=form_card,
                 ),

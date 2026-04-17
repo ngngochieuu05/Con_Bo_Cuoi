@@ -17,7 +17,7 @@ def build_profile_farmer(page: ft.Page, on_back=None):
         border_radius=48,
         bgcolor=ft.Colors.with_opacity(0.30, PRIMARY),
         border=ft.border.all(2.5, ft.Colors.with_opacity(0.55, ft.Colors.WHITE)),
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment.CENTER,
         clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
     )
     msg = ft.Text("", size=12)
@@ -32,7 +32,7 @@ def build_profile_farmer(page: ft.Page, on_back=None):
         b64 = avatar_b64["val"]
         if b64:
             avatar_img.content = ft.Image(
-                src_base64=b64, width=96, height=96, fit=ft.ImageFit.COVER,
+                src_base64=b64, width=96, height=96, fit="cover",
             )
         else:
             label = (user.get("ho_ten") or "?")[0].upper()

@@ -1,0 +1,186 @@
+name: Beta Release
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-beta-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release-beta:
+    name: Beta Release
+    runs-on: ubuntu-latest
+    # Skip release commits to avoid infinite loop (null-safe for workflow_dispatch)
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message || '', '[skip ci]')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Compute beta version
+        id: version
+        run: |
+          # Get latest stable tag (only pure semver, exclude all prereleases)
+          STABLE_TAG=$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          STABLE_VERSION=${STABLE_TAG#v}
+
+          if [ -z "$STABLE_VERSION" ]; then
+            echo "No stable tag found, using 0.0.0"
+            STABLE_VERSION="0.0.0"
+          fi
+
+          # Find highest existing beta number (not count — avoids collision if tags deleted)
+          LAST_BETA=$(git tag -l "v${STABLE_VERSION}-beta.*" | sed 's/.*beta\.//' | sort -n | tail -1)
+          NEXT_BETA=$(( ${LAST_BETA:-0} + 1 ))
+
+          BETA_VERSION="${STABLE_VERSION}-beta.${NEXT_BETA}"
+          echo "version=${BETA_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "stable=${STABLE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "[i] Stable: v${STABLE_VERSION} | Beta: v${BETA_VERSION}"
+
+      - name: Update package version
+        run: |
+          npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
+
+      - name: Prepare release assets
+        run: node scripts/prepare-release-assets.cjs "${{ steps.version.outputs.version }}"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and tag
+        run: |
+          git add package.json package-lock.json claude/metadata.json
+          # Stage release assets if they exist
+          [ -f CHANGELOG.md ] && git add CHANGELOG.md
+          git commit -m "chore(release): ${{ steps.version.outputs.version }} [skip ci]"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin dev
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Generate structured release notes
+        id: notes
+        run: |
+          # Find previous tag — aligned with send-discord-release.cjs logic:
+          # sort ALL v* tags by version, skip current release tag, pick next.
+          CURRENT_TAG="v${{ steps.version.outputs.version }}"
+          PREV_TAG=$(git tag --sort=-v:refname -l "v*" | grep -v "^${CURRENT_TAG}$" | head -1 || true)
+          if [ -z "$PREV_TAG" ]; then
+            echo "[i] No previous tag found, using last 20 commits"
+            RANGE=""
+          else
+            RANGE="${PREV_TAG}..HEAD"
+          fi
+
+          # Generate structured notes from conventional commits
+          NOTES_FILE=$(mktemp)
+          declare -A SECTIONS
+          SECTION_ORDER="feat hotfix fix perf refactor docs test build ci chore"
+
+          GIT_CMD="git log --no-merges --format=%h %s"
+          if [ -n "$RANGE" ]; then
+            GIT_CMD="git log ${RANGE} --no-merges --format=%h %s"
+          else
+            GIT_CMD="git log -20 --no-merges --format=%h %s"
+          fi
+
+          # Regex stored in variable to prevent bash from misinterpreting
+          # parentheses/brackets inside [[ =~ ]] (fails on bash 5.x/Ubuntu 24.04)
+          COMMIT_RE='^([a-f0-9]+) ([a-zA-Z]+)(\(([^)]*)\))?!?: (.+)'
+
+          while IFS= read -r line; do
+            [[ -z "$line" || "$line" == *"[skip ci]"* ]] && continue
+            if [[ "$line" =~ $COMMIT_RE ]]; then
+              hash="${BASH_REMATCH[1]}"
+              type="${BASH_REMATCH[2],,}"
+              scope="${BASH_REMATCH[4]}"
+              desc="${BASH_REMATCH[5]}"
+              entry="* ${desc} (${hash})"
+              [[ -n "$scope" ]] && entry="* **${scope}:** ${desc} (${hash})"
+              SECTIONS[$type]+="${entry}"$'\n'
+            fi
+          done < <($GIT_CMD 2>/dev/null)
+
+          # Map types to section headers (matching .releaserc.js)
+          declare -A HEADERS=(
+            [feat]="🚀 Features"
+            [hotfix]="🔥 Hotfixes"
+            [fix]="🐞 Bug Fixes"
+            [perf]="⚡ Performance Improvements"
+            [refactor]="♻️ Code Refactoring"
+            [docs]="📚 Documentation"
+            [test]="✅ Tests"
+            [build]="🏗️ Build System"
+            [ci]="👷 CI"
+            [chore]="🔧 Chores"
+          )
+
+          for type in $SECTION_ORDER; do
+            if [[ -n "${SECTIONS[$type]}" ]]; then
+              echo "### ${HEADERS[$type]}" >> "$NOTES_FILE"
+              echo "" >> "$NOTES_FILE"
+              printf '%s' "${SECTIONS[$type]}" >> "$NOTES_FILE"
+              echo "" >> "$NOTES_FILE"
+            fi
+          done
+
+          # Fallback if no conventional commits found
+          if [ ! -s "$NOTES_FILE" ]; then
+            echo "No conventional commits found in this release." > "$NOTES_FILE"
+          fi
+
+          echo "file=${NOTES_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub prerelease
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ASSETS=""
+          if [ -f "dist/claudekit-engineer.zip" ]; then
+            ASSETS="dist/claudekit-engineer.zip"
+          fi
+
+          RELEASE_ARGS="--title v${{ steps.version.outputs.version }} --prerelease --notes-file ${{ steps.notes.outputs.file }} --target dev"
+          if [ -n "$ASSETS" ]; then
+            gh release create "v${{ steps.version.outputs.version }}" $RELEASE_ARGS "$ASSETS"
+          else
+            gh release create "v${{ steps.version.outputs.version }}" $RELEASE_ARGS
+          fi
+          rm -f "${{ steps.notes.outputs.file }}"
+
+      - name: Send beta release notification to Discord
+        if: success()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node scripts/send-discord-release.cjs beta

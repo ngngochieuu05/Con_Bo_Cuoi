@@ -189,7 +189,7 @@ def _model_card(m: dict, on_refresh) -> ft.Control:
                         ft.Container(
                             width=40, height=40, border_radius=14,
                             bgcolor=ft.Colors.with_opacity(0.18, loai_color),
-                            alignment=ft.alignment.center,
+                            alignment=ft.Alignment.CENTER,
                             content=ft.Icon(loai_icon, size=20, color=loai_color),
                         ),
                         ft.Column(tight=True, spacing=2, controls=[
