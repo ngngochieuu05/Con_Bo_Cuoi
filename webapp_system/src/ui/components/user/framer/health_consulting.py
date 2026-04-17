@@ -45,7 +45,7 @@ def _get_experts() -> list[dict]:
 # MAIN ENTRY
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_health_consulting(page: ft.Page = None):  # noqa: C901
+def build_health_consulting(page: ft.Page | None = None):  # noqa: C901
     content_area = ft.Container(expand=True)
 
     def _update():
@@ -181,7 +181,7 @@ def _make_selection_screen(on_ai, on_expert):
 # AI CHAT
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
+def _make_ai_chat(page: ft.Page | None, on_back=None):  # noqa: C901
     messages: list[dict] = list(_SEED_MESSAGES)
     list_ref       = ft.Ref[ft.ListView]()
     input_ref      = ft.Ref[ft.TextField]()
@@ -324,7 +324,6 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
             try:
                 page.open(dlg)
             except Exception:
-                page.dialog = dlg
                 dlg.open = True
                 page.update()
 
@@ -573,8 +572,8 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
     def _open_camera_live(e):
         """Camera dialog: live preview → chụp → xem lại → gửi / chụp lại."""
         stop_evt   = threading.Event()
-        last_frame = {"frame": None}
-        snap_path  = {"path": None}     # ảnh đã chụp
+        last_frame: dict = {"frame": None}
+        snap_path: dict  = {"path": None}     # ảnh đã chụp
         is_preview = {"on": False}      # đang xem ảnh đã chụp?
 
         # ── controls ──────────────────────────────────────────────────────
@@ -797,14 +796,15 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
             if not path:
                 return
             stop_evt.set()
-            try:
-                page.close(dlg)
-            except Exception:
+            if page:
                 try:
-                    dlg.open = False
-                    page.update()
+                    page.close(dlg)
                 except Exception:
-                    pass
+                    try:
+                        dlg.open = False
+                        page.update()
+                    except Exception:
+                        pass
             msg = {
                 "sender": "farmer", "text": None,
                 "img_src": path, "file_name": None,
@@ -821,14 +821,15 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
 
         def _close_cam(e):
             stop_evt.set()
-            try:
-                page.close(dlg)
-            except Exception:
+            if page:
                 try:
-                    dlg.open = False
-                    page.update()
+                    page.close(dlg)
                 except Exception:
-                    pass
+                    try:
+                        dlg.open = False
+                        page.update()
+                    except Exception:
+                        pass
 
         dlg = ft.AlertDialog(
             modal=True,
@@ -885,7 +886,6 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
             try:
                 page.open(dlg)
             except Exception:
-                page.dialog = dlg
                 dlg.open = True
                 page.update()
             threading.Thread(target=_stream, daemon=True).start()
@@ -1057,7 +1057,7 @@ def _make_ai_chat(page: ft.Page, on_back=None):  # noqa: C901
 # EXPERT CHAT
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _make_expert_chat(page: ft.Page, on_back=None):  # noqa: C901
+def _make_expert_chat(page: ft.Page | None, on_back=None):  # noqa: C901
     experts      = _get_experts()
     selected_exp = {"user": experts[0] if experts else None}
 

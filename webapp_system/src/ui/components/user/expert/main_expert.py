@@ -52,8 +52,11 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
             on_profile=lambda: select_view("profile"),
             page=page,
         )
-        if root.page:
-            root.update()
+        try:
+            if root.page:
+                root.update()
+        except RuntimeError:
+            pass
 
     render()
     return root
