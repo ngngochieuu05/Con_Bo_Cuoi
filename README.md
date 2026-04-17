@@ -92,6 +92,7 @@ python webapp_system/src/main.py
 ```
 
 **Web mode** — edit `webapp_system/src/dal/db/app_config.json`:
+
 ```json
 { "app_mode": "web", "app_port": 8080 }
 ```
@@ -161,6 +162,7 @@ build_role_shell(page, role="farmer", content=my_screen)
 We take security seriously. Please read our full [Security Policy](SECURITY.md) before reporting.
 
 **Quick summary:**
+
 - **Do NOT** open a public GitHub issue for vulnerabilities — email maintainers directly
 - Passwords hashed with SHA-256 · sessions cleared on logout · no credentials in repo
 - Default seed accounts use weak passwords — **change before any production deployment**
@@ -218,6 +220,7 @@ refactor: split consulting_review into smaller modules
 #### Reporting Bugs
 
 Open an [issue](https://github.com/ngngochieuu05/Con_Bo_Cuoi/issues) and include:
+
 - Steps to reproduce
 - Expected vs actual behavior
 - Python version, OS, and Flet version
@@ -277,6 +280,7 @@ python webapp_system/src/main.py
 ```
 
 **Web mode** — chỉnh `webapp_system/src/dal/db/app_config.json`:
+
 ```json
 { "app_mode": "web", "app_port": 8080 }
 ```
@@ -286,6 +290,7 @@ python webapp_system/src/main.py
 Xem chính sách bảo mật đầy đủ tại [SECURITY.md](SECURITY.md).
 
 **Tóm tắt:**
+
 - **Không** mở public issue — liên hệ maintainers trực tiếp qua email
 - Mật khẩu hash SHA-256 · session xóa khi đăng xuất · không commit credential
 - Tài khoản seed mặc định có mật khẩu yếu — **thay đổi trước khi deploy production**
@@ -309,6 +314,7 @@ git push origin feat/ten-tinh-nang
 ```
 
 **Quy tắc phát triển:**
+
 - Tối đa 200 dòng code mỗi file
 - Dùng `ft.Colors.*` / `ft.Icons.*` (chữ hoa)
 - Mọi UI component phải dùng helpers từ `ui/theme.py`
