@@ -124,5 +124,6 @@ docs/add_skill.md
 models/
 kanban.cmd
 .husky/
-.github/workflows/
+.github/
+guide/
 

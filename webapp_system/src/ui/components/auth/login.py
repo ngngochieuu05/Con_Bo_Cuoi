@@ -17,10 +17,16 @@ def LoginScreen(page: ft.Page, on_login_success=None, on_switch_to_register=None
     )
 
     def handle_login(e):
+        from bll.services.auth_service import _is_locked_out
         uname = (username.value or "").strip()
         pwd = password.value or ""
         if not uname or not pwd:
             message.value = "Vui lòng nhập tài khoản và mật khẩu."
+            message.update()
+            return
+
+        if _is_locked_out(uname):
+            message.value = "Tài khoản tạm thời bị khóa. Vui lòng thử lại sau 15 phút."
             message.update()
             return
 
