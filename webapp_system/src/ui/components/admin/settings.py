@@ -1,6 +1,7 @@
 import flet as ft
 import os, sys, threading, time
 from bll.services.monitor_service import load_config, save_config, get_local_ip
+from bll.user.farmer.tu_van_ai import clear_model_cache
 from ui.theme import glass_container, button_style, section_title, inline_field, DANGER, WARNING, PRIMARY, SECONDARY
 
 
@@ -109,6 +110,49 @@ def build_admin_settings(on_logout=None):
     sw_realtime = ft.Switch(label="Cảnh báo thời gian thực", value=True, active_color=PRIMARY)
     sw_email    = ft.Switch(label="Gửi email tổng hợp mỗi ngày", value=True, active_color=PRIMARY)
 
+    # ── YOLO model device config ─────────────────────────────────────────
+    yolo_mode_value = cfg.get("yolo_model_mode", "cpu")
+    yolo_mode_dropdown = ft.Dropdown(
+        label="Chế độ chạy model YOLO",
+        value=yolo_mode_value,
+        border_radius=12,
+        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+        border_color=ft.Colors.with_opacity(0.28, ft.Colors.WHITE),
+        focused_border_color=PRIMARY,
+        label_style=ft.TextStyle(color=ft.Colors.WHITE70, size=12),
+        options=[
+            ft.dropdown.Option("cpu",  "CPU (ưu tiên)"),
+            ft.dropdown.Option("gpu",  "GPU"),
+            ft.dropdown.Option("auto", "Auto"),
+        ],
+    )
+    yolo_status = ft.Text("", size=11, color=ft.Colors.WHITE70)
+
+    def save_yolo_mode(e):
+        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            current = load_config()
+            old_mode = current.get("yolo_model_mode", "cpu")
+            new_mode = yolo_mode_dropdown.value or "cpu"
+            data = {**current, "yolo_model_mode": new_mode}
+            save_config(data)
+            clear_model_cache()
+            print(
+                f"[{ts}] [ADMIN][YOLO] yolo_model_mode: {old_mode} -> {new_mode} "
+                f"| model cache cleared",
+                flush=True,
+            )
+            yolo_status.value = (
+                f"Đã lưu — mode: {new_mode}. "
+                "Cache đã clear, áp dụng cho lần inference kế tiếp."
+            )
+            yolo_status.color = ft.Colors.GREEN_300
+        except Exception as err:
+            print(f"[{ts}] [ADMIN][YOLO][ERROR] save failed: {err}", flush=True)
+            yolo_status.value = f"Lỗi: {str(err)[:80]}"
+            yolo_status.color = ft.Colors.RED_300
+        yolo_status.update()
+
     return ft.Column(
         expand=True,
         spacing=12,
@@ -131,6 +175,25 @@ def build_admin_settings(on_logout=None):
                 section_title("NOTIFICATIONS", "Thông báo"),
                 sw_realtime,
                 sw_email,
+            ])),
+
+            # Cấu hình AI (YOLO device mode)
+            glass_container(padding=14, radius=16, content=ft.Column(spacing=10, controls=[
+                section_title("MEMORY", "Cấu hình AI"),
+                ft.Text(
+                    "Chọn device chạy YOLO inference. GPU nhanh hơn nhưng cần CUDA. "
+                    "Auto ưu tiên CPU, fallback GPU nếu CPU không khả dụng.",
+                    size=11, color=ft.Colors.WHITE54,
+                ),
+                yolo_mode_dropdown,
+                yolo_status,
+                ft.ElevatedButton(
+                    "Lưu cấu hình AI",
+                    icon=ft.Icons.SAVE,
+                    style=button_style("primary"),
+                    height=40,
+                    on_click=save_yolo_mode,
+                ),
             ])),
 
             # Chế độ & LAN URL

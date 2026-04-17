@@ -25,7 +25,7 @@ GLASS_SHADOW = ft.BoxShadow(
 )
 
 
-def glass_container(content, width=None, height=None, padding=24, radius=28):
+def glass_container(content, width=None, height=None, padding: int | ft.Padding = 24, radius=28):
     return ft.Container(
         width=width,
         height=height,
@@ -347,8 +347,8 @@ def _build_avatar_btn(page: ft.Page | None, on_profile=None) -> ft.Control:
     ho_ten = "?"
     if page is not None:
         try:
-            b64 = page.client_storage.get("anh_dai_dien")
-            ho_ten = page.client_storage.get("ho_ten") or "?"
+            b64 = page.data.get("anh_dai_dien") if isinstance(page.data, dict) else None
+            ho_ten = (page.data.get("ho_ten") if isinstance(page.data, dict) else None) or "?"
         except Exception:
             pass
     initial = (ho_ten or "?")[0].upper()
@@ -539,7 +539,7 @@ def auth_text_field(
 def auth_dropdown(
     label: str,
     options: list[tuple[str, str]],
-    value: str = None,
+    value: str | None = None,
 ) -> ft.Dropdown:
     """Dropdown glassmorphism chuẩn cho màn hình auth."""
     return ft.Dropdown(

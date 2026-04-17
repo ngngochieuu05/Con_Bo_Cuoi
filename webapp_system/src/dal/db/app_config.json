@@ -4,5 +4,6 @@
   "auto_connect": false,
   "notify_alert": true,
   "app_mode": "desktop",
-  "app_port": 8550
+  "app_port": 8550,
+  "yolo_model_mode": "cpu"
 }

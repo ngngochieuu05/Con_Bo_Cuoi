@@ -37,6 +37,7 @@ def load_config() -> dict[str, Any]:
         "notify_alert": True,
         "app_mode": "desktop",
         "app_port": 8080,
+        "yolo_model_mode": "cpu",  # cpu | gpu | auto
     }
     if not os.path.exists(CONFIG_PATH):
         return default
