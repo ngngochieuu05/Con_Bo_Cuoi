@@ -1,3 +1,4 @@
+import time
 import flet as ft
 from dal.tai_khoan_repo import (
     authenticate as _dal_authenticate,
@@ -8,22 +9,50 @@ from dal.tai_khoan_repo import (
     change_password as _dal_change_pwd,
 )
 
+# Brute-force lockout: {username: [timestamp, ...]}
+_MAX_ATTEMPTS = 5
+_WINDOW_SECS  = 300   # 5-minute sliding window
+_LOCKOUT_SECS = 900   # 15-minute lockout
+_login_attempts: dict[str, list[float]] = {}
+
+
+def _is_locked_out(uname: str) -> bool:
+    """Return True if account should be temporarily locked."""
+    now = time.monotonic()
+    attempts = [t for t in _login_attempts.get(uname, []) if now - t < _WINDOW_SECS]
+    _login_attempts[uname] = attempts
+    return len(attempts) >= _MAX_ATTEMPTS
+
+
+def _record_failure(uname: str) -> None:
+    now = time.monotonic()
+    _login_attempts.setdefault(uname, []).append(now)
+
+
+def _clear_attempts(uname: str) -> None:
+    _login_attempts.pop(uname, None)
+
 
 def login(ten_dang_nhap: str, mat_khau: str, page: ft.Page):
     """Xác thực tài khoản qua DAL. Trả về vai_tro nếu thành công, None nếu thất bại."""
-    user = _dal_authenticate(ten_dang_nhap.strip(), mat_khau)
+    uname = ten_dang_nhap.strip()
+    if _is_locked_out(uname):
+        return None
+    user = _dal_authenticate(uname, mat_khau)
     if user:
+        _clear_attempts(uname)
         role = user.get("vai_tro", "farmer")
         page.data["user_role"] = role
         page.data["user_id"] = str(user.get("id_user", ""))
         page.data["ho_ten"] = user.get("ho_ten", "")
         return role
+    _record_failure(uname)
+    return None
 
 
 def authenticate(ten_dang_nhap: str, mat_khau: str, page=None) -> dict | None:
     """Xác thực và trả về user record (không lưu session). page có thể là None."""
     return _dal_authenticate(ten_dang_nhap.strip(), mat_khau)
-    return None
 
 
 def perform_logout(page: ft.Page, on_logout_success):
@@ -47,17 +76,29 @@ def check_logged_in_role(page: ft.Page):
 
 # ── User / Profile ────────────────────────────────────────────────────────────
 
+_ALLOWED_ROLES_SELF_REGISTER = {"farmer", "expert"}
+_UNAME_MAX_LEN = 50
+_UNAME_MIN_LEN = 3
+
+
 def register(ten_dang_nhap: str, mat_khau: str, ho_ten: str,
              vai_tro: str = "farmer") -> tuple[bool, str]:
     """
     Đăng ký tài khoản mới.
     Trả về (success, message).
     """
+    import re
     uname = ten_dang_nhap.strip()
     if not uname:
         return False, "Tên đăng nhập không được để trống."
+    if len(uname) < _UNAME_MIN_LEN or len(uname) > _UNAME_MAX_LEN:
+        return False, f"Tên đăng nhập phải từ {_UNAME_MIN_LEN}–{_UNAME_MAX_LEN} ký tự."
+    if not re.match(r"^[a-zA-Z0-9_]+$", uname):
+        return False, "Tên đăng nhập chỉ được chứa chữ, số và dấu gạch dưới."
     if len(mat_khau) < 6:
         return False, "Mật khẩu phải có ít nhất 6 ký tự."
+    if vai_tro not in _ALLOWED_ROLES_SELF_REGISTER:
+        vai_tro = "farmer"
     if _dal_get_by_uname(uname):
         return False, f"Tên đăng nhập '{uname}' đã tồn tại."
     _dal_create(uname, mat_khau, vai_tro, ho_ten.strip())

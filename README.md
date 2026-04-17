@@ -2,11 +2,9 @@
 
 <a href="#english-version">🇬🇧 English</a> · <a href="#vietnamese-version">🇻🇳 Tiếng Việt</a>
 
----
+<br/>
 
-# 🐄 Con Bò Cười
-
-**AI-Powered Cattle Monitoring System**
+<img src="img/header_composite.png" alt="Con Bò Cười — HD LGBT" width="760" />
 
 [![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Flet](https://img.shields.io/badge/Flet-0.28.3-00A8E8?style=flat-square)](https://flet.dev)

@@ -1,6 +1,10 @@
+<div align="center">
+
 # Security Policy
 
 <a href="#english">🇬🇧 English</a> · <a href="#vietnamese">🇻🇳 Tiếng Việt</a>
+
+</div>
 
 ---
 

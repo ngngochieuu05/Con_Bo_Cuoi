@@ -5,5 +5,5 @@
   "notify_alert": true,
   "app_mode": "desktop",
   "app_port": 8550,
-  "yolo_model_mode": "cpu"
+  "yolo_model_mode": "gpu"
 }
