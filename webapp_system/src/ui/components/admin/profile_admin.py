@@ -17,7 +17,7 @@ def build_profile_admin(page: ft.Page, on_back=None):
         border_radius=48,
         bgcolor=ft.Colors.with_opacity(0.30, PRIMARY),
         border=ft.border.all(2.5, ft.Colors.with_opacity(0.55, ft.Colors.WHITE)),
-        alignment=ft.Alignment.CENTER,
+        alignment=ft.alignment.center,
         clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
     )
     msg = ft.Text("", size=12)
