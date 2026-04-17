@@ -4,10 +4,7 @@
 
 <br/>
 
-<table border="0" cellpadding="0" cellspacing="0"><tr><td align="center">
-<img src="img/banner_cow_lgbt.jpg" alt="Banner" width="760" /><br/>
-<img src="img/logo_hd_lgbt.jpg" alt="Logo" width="110" />
-</td></tr></table>
+<img src="img/header_composite.png" alt="Con Bò Cười — HD LGBT" width="760" />
 
 # Con Bò Cười
 
