@@ -1,54 +1,44 @@
 <div align="center">
 
-# 🐄 Con Bò Cưới
+<a href="#english-version">🇬🇧 English</a> · <a href="#vietnamese-version">🇻🇳 Tiếng Việt</a>
 
-**Hệ thống giám sát bò thông minh bằng AI**
+---
 
-_AI-Powered Cattle Monitoring System_
+# 🐄 Con Bò Cười
+
+**AI-Powered Cattle Monitoring System**
 
 [![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Flet](https://img.shields.io/badge/Flet-0.28.3-00A8E8?style=flat-square)](https://flet.dev)
 [![YOLOv8](https://img.shields.io/badge/YOLO-v8-FF6B35?style=flat-square)](https://ultralytics.com)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![Issues](https://img.shields.io/github/issues/ngngochieuu05/Con_Bo_Cuoi?style=flat-square)](https://github.com/ngngochieuu05/Con_Bo_Cuoi/issues)
 [![Last Commit](https://img.shields.io/github/last-commit/ngngochieuu05/Con_Bo_Cuoi?style=flat-square)](https://github.com/ngngochieuu05/Con_Bo_Cuoi/commits)
 
-<br/>
-
-> Ứng dụng desktop/web đa nền tảng giám sát đàn bò theo thời gian thực — phát hiện hành vi bất thường, cảnh báo dịch bệnh và kết nối chuyên gia thú y qua AI.
-
 </div>
 
 ---
 
-## ✨ Tính năng nổi bật
+<a id="english-version"></a>
 
-| Tính năng | Mô tả |
-|-----------|-------|
-| 🎯 **Phát hiện bò bằng YOLO** | Nhận diện và khoanh vùng từng con bò qua camera thời gian thực |
-| 🧠 **Phân loại hành vi** | Tự động nhận diện: nằm, đánh nhau, stress nhiệt, bất thường |
-| 🚨 **Cảnh báo dịch bệnh** | AI phát hiện dấu hiệu bệnh và gửi alert ngay lập tức |
-| 👥 **3 vai trò người dùng** | Admin, Chuyên gia (Expert), Nông dân (Farmer) — giao diện riêng biệt |
-| 💬 **Tư vấn AI** | Farmer chat trực tiếp với AI + gửi ảnh chụp từ camera |
-| 📊 **Dashboard analytics** | KPI cards, biểu đồ cảnh báo, lịch sử phiên giám sát |
-| 🖥️ **Desktop + Web** | Chạy offline (desktop) hoặc triển khai web qua LAN |
-| 🔌 **Camera tích hợp** | Hỗ trợ camera USB, IP camera, snapshot và live stream |
+## 🇬🇧 English
 
----
+> A cross-platform desktop/web application for real-time cattle herd monitoring — detecting abnormal behavior, disease alerts, and connecting farmers with veterinary experts through AI.
 
-## 🖼️ Giao diện
+### ✨ Features
 
-<div align="center">
+| Feature | Description |
+|---------|-------------|
+| 🎯 **YOLO Cattle Detection** | Detect and localize each cow in real-time via camera |
+| 🧠 **Behavior Classification** | Auto-classify: lying, fighting, heat stress, anomalies |
+| 🚨 **Disease Alerts** | AI flags disease signs and sends instant alerts |
+| 👥 **3 User Roles** | Admin, Expert, Farmer — each with a dedicated dashboard |
+| 💬 **AI Consulting** | Farmers chat with AI + send camera snapshots for review |
+| 📊 **Analytics Dashboard** | KPI cards, alert charts, session history |
+| 🖥️ **Desktop + Web** | Offline desktop app or LAN web deployment |
+| 🔌 **Camera Integration** | USB camera, IP camera, snapshot & live stream support |
 
-| Admin Dashboard | Expert Consulting | Farmer Monitoring |
-|:-:|:-:|:-:|
-| Quản lý người dùng, model AI, camera | Review ca bệnh, phân tích dữ liệu | Xem trực tiếp, tư vấn sức khỏe |
-
-</div>
-
----
-
-## 🏗️ Kiến trúc hệ thống
+### 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -66,103 +56,49 @@ _AI-Powered Cattle Monitoring System_
 └─────────────────────────────────────────────────────────┘
 ```
 
-**3-layer architecture** — UI gọi BLL → BLL gọi DAL → DAL đọc/ghi JSON. Thiết kế để dễ dàng chuyển sang PostgreSQL chỉ bằng cách thay `base_repo.py`.
+### 🤖 AI Models
 
----
+| Model | Level | Function |
+|-------|-------|----------|
+| `cattle_detect` | User-level | Detect & localize cattle (bounding boxes) |
+| `behavior` | User-level | Classify behavior (lying, standing, fighting...) |
+| `disease` | System-level | Disease sign detection (admin-managed) |
 
-## 🤖 AI Models
+Config params: `conf` (0.05–0.95) · `iou` (0.05–0.95) · `.pt` model file path
 
-| Model | Cấp độ | Chức năng |
-|-------|--------|-----------|
-| `cattle_detect` | User-level | Phát hiện & khoanh vùng bò (bounding boxes) |
-| `behavior` | User-level | Phân loại hành vi (nằm, đứng, đánh nhau...) |
-| `disease` | System-level | Phát hiện dấu hiệu dịch bệnh (admin quản lý) |
+### 📦 Installation
 
-Cấu hình: `conf` (0.05–0.95) · `iou` (0.05–0.95) · file `.pt` model
-
----
-
-## 📦 Cài đặt
-
-### Yêu cầu hệ thống
-
-- Python 3.14+
-- Windows 10/11 (desktop mode) hoặc Linux/macOS (web mode)
-- Webcam / IP Camera (tùy chọn)
-- GPU CUDA (khuyến nghị cho YOLO inference)
-
-### 1. Clone repository
+**Requirements:** Python 3.14+ · Windows 10/11 (desktop) or Linux/macOS (web) · Webcam / IP Camera (optional) · GPU CUDA (recommended)
 
 ```bash
+# 1. Clone
 git clone https://github.com/ngngochieuu05/Con_Bo_Cuoi.git
 cd Con_Bo_Cuoi
-```
 
-### 2. Tạo virtual environment
-
-```bash
+# 2. Virtual environment
 python -m venv .venv
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux/macOS
 
-# Windows
-.venv\Scripts\activate
-
-# Linux/macOS
-source .venv/bin/activate
-```
-
-### 3. Cài đặt dependencies
-
-```bash
+# 3. Install dependencies
 pip install -r webapp_system/requirements.txt
-```
 
-> **GPU (CUDA 12.x):**
-> ```bash
-> pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-> pip install ultralytics
-> ```
->
-> **CPU only:**
-> ```bash
-> pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-> pip install ultralytics
-> ```
+# GPU (CUDA 12.x)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# CPU only
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install ultralytics
 
-### 4. Chạy ứng dụng
-
-```bash
-# Desktop mode (mặc định)
+# 4. Run
 python webapp_system/src/main.py
 ```
 
-**Web mode** — chỉnh `webapp_system/src/dal/db/app_config.json` trước:
+**Web mode** — edit `webapp_system/src/dal/db/app_config.json`:
 ```json
-{
-  "app_mode": "web",
-  "app_port": 8080
-}
-```
-```bash
-python webapp_system/src/main.py
-# → http://localhost:8080
-# → http://<LAN_IP>:8080  (cho thiết bị cùng WiFi)
+{ "app_mode": "web", "app_port": 8080 }
 ```
 
----
-
-## 🔑 Tài khoản mặc định
-
-| Vai trò | Tên đăng nhập | Mật khẩu |
-|---------|--------------|----------|
-| **Admin** | `admin` | `admin123` |
-| **Expert** | `expert01` | `expert123` |
-| **Farmer** | `farmer01` | `farmer123` |
-
-> ⚠️ Thay đổi mật khẩu trước khi deploy production.
-
----
-
-## 📁 Cấu trúc thư mục
+### 📁 Project Structure
 
 ```
 Con_Bo_Cuoi/
@@ -170,13 +106,11 @@ Con_Bo_Cuoi/
 │   ├── requirements.txt
 │   └── src/
 │       ├── main.py                  # Entry point
-│       ├── bll/
-│       │   └── services/
-│       │       ├── auth_service.py  # Login, logout, session
-│       │       └── monitor_service.py # YOLO config, camera, AI calls
-│       ├── dal/
+│       ├── bll/services/            # Business logic
+│       │   ├── auth_service.py      # Login, logout, session
+│       │   └── monitor_service.py   # YOLO config, camera, AI calls
+│       ├── dal/                     # Data access layer
 │       │   ├── base_repo.py         # Generic CRUD (JSON / DB-ready)
-│       │   ├── *_repo.py            # Repo per entity
 │       │   └── db/                  # Runtime JSON files (gitignored)
 │       └── ui/
 │           ├── theme.py             # Design tokens + shared components
@@ -184,64 +118,38 @@ Con_Bo_Cuoi/
 │               ├── auth/            # Login, register, forgot password
 │               ├── admin/           # Dashboard, user/model/camera mgmt
 │               └── user/
-│                   ├── expert/      # Consulting, data review, dashboard
+│                   ├── expert/      # Consulting, data review
 │                   └── framer/      # Live monitoring, health consulting
-└── docs/                            # Tài liệu kỹ thuật
-    ├── system-architecture.md
-    ├── code-standards.md
-    ├── design-guidelines.md
-    └── project-roadmap.md
+└── docs/                            # Technical documentation
 ```
 
----
+### 🎨 Design System
 
-## 🎨 Design System
-
-Toàn bộ UI dùng **Glassmorphism** + **Airbnb button style**, tập trung tại `ui/theme.py`:
+All UI uses **Glassmorphism** + **Airbnb button style**, centralized in `ui/theme.py`:
 
 ```python
 from ui.theme import glass_container, button_style, build_role_shell
 
-# Frosted-glass card
 glass_container(content=my_widget, padding=24, radius=28)
-
-# Airbnb button
 ft.ElevatedButton("Submit", style=button_style("primary"))
-
-# Full app shell với header + nav
 build_role_shell(page, role="farmer", content=my_screen)
 ```
 
----
+> Always use `ft.Colors.*` and `ft.Icons.*` (uppercase). Never inline glass styles.
 
-## 📚 Tài liệu
+### 🛠️ Tech Stack
 
-| Tài liệu | Mô tả |
-|----------|-------|
-| [System Architecture](./docs/system-architecture.md) | Kiến trúc 3 lớp, data flow, deployment |
-| [Code Standards](./docs/code-standards.md) | Convention, naming rules, review checklist |
-| [Design Guidelines](./docs/design-guidelines.md) | Color tokens, components, responsive |
-| [Project Roadmap](./docs/project-roadmap.md) | 6 phases từ MVP đến production |
-| [Codebase Summary](./docs/codebase-summary.md) | Module reference, ER diagram |
+| Component | Technology |
+|-----------|------------|
+| Language | Python 3.14 |
+| UI Framework | [Flet](https://flet.dev) 0.28.3 |
+| Computer Vision | OpenCV 4.13+ |
+| AI/ML | YOLOv8 (Ultralytics) · PyTorch |
+| Image Processing | Pillow 12+ · NumPy 2.4+ |
+| Data Storage | JSON (dev) · PostgreSQL-ready |
+| Auth | SHA-256 hashing · session via page.data |
 
----
-
-## 🛠️ Tech Stack
-
-| Thành phần | Công nghệ |
-|-----------|-----------|
-| **Language** | Python 3.14 |
-| **UI Framework** | [Flet](https://flet.dev) 0.28.3 |
-| **Computer Vision** | OpenCV 4.13+ |
-| **AI/ML** | YOLOv8 (Ultralytics) · PyTorch |
-| **Image Processing** | Pillow 12+ · NumPy 2.4+ |
-| **Data Storage** | JSON (dev) · PostgreSQL-ready |
-| **Auth** | SHA-256 hashing · session via page.data |
-| **HTTP** | Requests 2.33+ |
-
----
-
-## 🗺️ Roadmap
+### 🗺️ Roadmap
 
 - [x] **Phase 1** — MVP: Auth, Admin CRUD, basic UI
 - [x] **Phase 2** — Expert UI: Consulting dashboard, AI insights
@@ -250,51 +158,196 @@ build_role_shell(page, role="farmer", content=my_screen)
 - [ ] **Phase 5** — Production: PostgreSQL, deployment, performance
 - [ ] **Phase 6** — Community: Plugin ecosystem, open API
 
----
+### 🔒 Security
 
-## 🤝 Đóng góp
+We take security seriously. If you discover a vulnerability, please follow responsible disclosure:
 
-Mọi đóng góp đều được hoan nghênh!
+- **Do NOT** open a public GitHub issue for security vulnerabilities
+- **Email** the maintainers directly with details of the vulnerability
+- Allow up to **72 hours** for an initial response
+- We will coordinate a fix and disclosure timeline with you
+
+**Security practices in this project:**
+- Passwords hashed with SHA-256 (no plaintext storage)
+- Session data cleared on logout via `page.data` purge
+- No credentials committed to the repository
+- `.env` files and secrets are gitignored by default
+- Default seed accounts use weak passwords — **change before any production deployment**
+
+### 🤝 Contributing
+
+Contributions of all kinds are welcome — bug fixes, features, docs, and tests.
+
+#### Getting Started
 
 ```bash
-# 1. Fork repo
-# 2. Tạo nhánh tính năng
-git checkout -b feat/ten-tinh-nang
+# 1. Fork the repository on GitHub
+# 2. Clone your fork
+git clone https://github.com/<your-username>/Con_Bo_Cuoi.git
+cd Con_Bo_Cuoi
 
-# 3. Commit theo conventional commits
-git commit -m "feat: mô tả tính năng"
+# 3. Create a feature branch
+git checkout -b feat/your-feature-name
 
-# 4. Push và tạo Pull Request
-git push origin feat/ten-tinh-nang
+# 4. Set up the dev environment
+python -m venv .venv && .venv\Scripts\activate
+pip install -r webapp_system/requirements.txt
 ```
 
-**Quy tắc:**
-- Mỗi file tối đa 200 dòng code
-- Dùng `ft.Colors.*` và `ft.Icons.*` (uppercase) — không dùng `ft.colors.*`
-- Mọi UI component phải dùng helpers từ `ui/theme.py`
-- Đặt tên file theo kebab-case
+#### Development Rules
 
----
+| Rule | Detail |
+|------|--------|
+| **File size** | Max 200 LOC per file — split larger files |
+| **Flet API** | Use `ft.Colors.*` / `ft.Icons.*` (uppercase only) |
+| **UI components** | Always use helpers from `ui/theme.py` — no inline styles |
+| **File naming** | kebab-case for Python/JS/shell files |
+| **Commits** | Follow [Conventional Commits](https://conventionalcommits.org) |
+| **Language** | Code, comments, and commit messages in English |
 
-## 👥 Nhóm phát triển
+#### Commit Message Format
 
-| Thành viên | Vai trò |
-|-----------|---------|
+```
+feat: add live camera snapshot for farmer dashboard
+fix: resolve page.data isinstance error on web mode
+docs: update system architecture diagram
+refactor: split consulting_review into smaller modules
+```
+
+#### Pull Request Checklist
+
+- [ ] Code follows the style guidelines (max 200 LOC, `ui/theme.py` helpers)
+- [ ] No hardcoded credentials or secrets
+- [ ] Tested on desktop mode (Windows)
+- [ ] PR description clearly explains the change and motivation
+- [ ] Linked to a relevant issue (if applicable)
+
+#### Reporting Bugs
+
+Open an [issue](https://github.com/ngngochieuu05/Con_Bo_Cuoi/issues) and include:
+- Steps to reproduce
+- Expected vs actual behavior
+- Python version, OS, and Flet version
+- Screenshots or error logs (if applicable)
+
+### 👥 Team
+
+| Member | Role |
+|--------|------|
 | **Tran Tan Dat** | Developer — Expert UI, YOLO integration |
 | **Nguyen Ngoc Hieu** | Developer — Farmer UI, Auth |
 
+### 📄 License
+
+Distributed under the **MIT License** — see [LICENSE](LICENSE) for full text.
+
 ---
 
-## 📄 License
+<a id="vietnamese-version"></a>
 
-Dự án này được phân phối dưới giấy phép **MIT**. Xem file [LICENSE](LICENSE) để biết thêm chi tiết.
+## 🇻🇳 Tiếng Việt
+
+> Ứng dụng desktop/web đa nền tảng giám sát đàn bò theo thời gian thực — phát hiện hành vi bất thường, cảnh báo dịch bệnh và kết nối chuyên gia thú y qua AI.
+
+### ✨ Tính năng nổi bật
+
+| Tính năng | Mô tả |
+|-----------|-------|
+| 🎯 **Phát hiện bò bằng YOLO** | Nhận diện và khoanh vùng từng con bò qua camera thời gian thực |
+| 🧠 **Phân loại hành vi** | Tự động nhận diện: nằm, đánh nhau, stress nhiệt, bất thường |
+| 🚨 **Cảnh báo dịch bệnh** | AI phát hiện dấu hiệu bệnh và gửi alert ngay lập tức |
+| 👥 **3 vai trò người dùng** | Admin, Chuyên gia, Nông dân — giao diện riêng biệt |
+| 💬 **Tư vấn AI** | Farmer chat với AI + gửi ảnh chụp từ camera để xem xét |
+| 📊 **Dashboard analytics** | KPI cards, biểu đồ cảnh báo, lịch sử phiên giám sát |
+| 🖥️ **Desktop + Web** | Chạy offline (desktop) hoặc triển khai web qua LAN |
+| 🔌 **Tích hợp Camera** | Hỗ trợ USB, IP camera, snapshot và live stream |
+
+### 📦 Cài đặt
+
+**Yêu cầu:** Python 3.14+ · Windows 10/11 (desktop) hoặc Linux/macOS (web) · Camera (tùy chọn) · GPU CUDA (khuyến nghị)
+
+```bash
+# 1. Clone
+git clone https://github.com/ngngochieuu05/Con_Bo_Cuoi.git
+cd Con_Bo_Cuoi
+
+# 2. Tạo môi trường ảo
+python -m venv .venv && .venv\Scripts\activate
+
+# 3. Cài đặt thư viện
+pip install -r webapp_system/requirements.txt
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+pip install ultralytics
+
+# 4. Chạy ứng dụng
+python webapp_system/src/main.py
+```
+
+**Web mode** — chỉnh `webapp_system/src/dal/db/app_config.json`:
+```json
+{ "app_mode": "web", "app_port": 8080 }
+```
+
+### 🔒 Bảo mật
+
+Nếu phát hiện lỗ hổng bảo mật:
+- **Không** mở public issue trên GitHub
+- **Liên hệ trực tiếp** với maintainers qua email kèm chi tiết
+- Chờ phản hồi trong vòng **72 giờ**
+
+**Thực hành bảo mật trong dự án:**
+- Mật khẩu được hash SHA-256 — không lưu plaintext
+- Session bị xóa hoàn toàn khi đăng xuất
+- Không commit credential vào repository
+- File `.env` và secrets đều được gitignore
+- Tài khoản seed mặc định có mật khẩu yếu — **thay đổi trước khi deploy production**
+
+### 🤝 Đóng góp
+
+```bash
+# 1. Fork repo trên GitHub
+# 2. Clone fork của bạn
+git clone https://github.com/<username>/Con_Bo_Cuoi.git
+
+# 3. Tạo nhánh tính năng
+git checkout -b feat/ten-tinh-nang
+
+# 4. Commit và push
+git commit -m "feat: mô tả thay đổi"
+git push origin feat/ten-tinh-nang
+# → Tạo Pull Request
+```
+
+**Quy tắc phát triển:**
+- Tối đa 200 dòng code mỗi file
+- Dùng `ft.Colors.*` / `ft.Icons.*` (chữ hoa)
+- Mọi UI component phải dùng helpers từ `ui/theme.py`
+- Tên file theo kebab-case
+- Commit theo [Conventional Commits](https://conventionalcommits.org)
+
+**Báo cáo lỗi:** Mở [issue](https://github.com/ngngochieuu05/Con_Bo_Cuoi/issues) kèm: bước tái hiện lỗi, kết quả mong đợi vs thực tế, phiên bản Python/OS/Flet, screenshot hoặc log lỗi.
+
+### 🗺️ Lộ trình phát triển
+
+- [x] **Phase 1** — MVP: Xác thực, quản lý Admin, UI cơ bản
+- [x] **Phase 2** — UI Chuyên gia: Dashboard tư vấn, AI insights
+- [ ] **Phase 3** — YOLO: Phát hiện trực tiếp, cảnh báo hành vi
+- [ ] **Phase 4** — Alert system: Thông báo thời gian thực
+- [ ] **Phase 5** — Production: PostgreSQL, triển khai, hiệu năng
+- [ ] **Phase 6** — Cộng đồng: Plugin ecosystem, open API
+
+### 📄 Giấy phép
+
+Phân phối dưới **MIT License** — xem file [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
 
-Made with ❤️ by the Con Bò Cưới team
+Made with ❤️ by the Con Bò Cười team
 
 ⭐ Nếu dự án hữu ích, hãy để lại một star!
+
+[🔝 Back to top](#)
 
 </div>
