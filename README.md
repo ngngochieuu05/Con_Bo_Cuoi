@@ -160,19 +160,14 @@ build_role_shell(page, role="farmer", content=my_screen)
 
 ### 🔒 Security
 
-We take security seriously. If you discover a vulnerability, please follow responsible disclosure:
+We take security seriously. Please read our full [Security Policy](SECURITY.md) before reporting.
 
-- **Do NOT** open a public GitHub issue for security vulnerabilities
-- **Email** the maintainers directly with details of the vulnerability
-- Allow up to **72 hours** for an initial response
-- We will coordinate a fix and disclosure timeline with you
-
-**Security practices in this project:**
-- Passwords hashed with SHA-256 (no plaintext storage)
-- Session data cleared on logout via `page.data` purge
-- No credentials committed to the repository
-- `.env` files and secrets are gitignored by default
+**Quick summary:**
+- **Do NOT** open a public GitHub issue for vulnerabilities — email maintainers directly
+- Passwords hashed with SHA-256 · sessions cleared on logout · no credentials in repo
 - Default seed accounts use weak passwords — **change before any production deployment**
+
+→ See [SECURITY.md](SECURITY.md) for supported versions, reporting instructions, and known limitations.
 
 ### 🤝 Contributing
 
@@ -290,17 +285,14 @@ python webapp_system/src/main.py
 
 ### 🔒 Bảo mật
 
-Nếu phát hiện lỗ hổng bảo mật:
-- **Không** mở public issue trên GitHub
-- **Liên hệ trực tiếp** với maintainers qua email kèm chi tiết
-- Chờ phản hồi trong vòng **72 giờ**
+Xem chính sách bảo mật đầy đủ tại [SECURITY.md](SECURITY.md).
 
-**Thực hành bảo mật trong dự án:**
-- Mật khẩu được hash SHA-256 — không lưu plaintext
-- Session bị xóa hoàn toàn khi đăng xuất
-- Không commit credential vào repository
-- File `.env` và secrets đều được gitignore
+**Tóm tắt:**
+- **Không** mở public issue — liên hệ maintainers trực tiếp qua email
+- Mật khẩu hash SHA-256 · session xóa khi đăng xuất · không commit credential
 - Tài khoản seed mặc định có mật khẩu yếu — **thay đổi trước khi deploy production**
+
+→ Xem [SECURITY.md](SECURITY.md) để biết phiên bản được hỗ trợ, hướng dẫn báo cáo, và các giới hạn đã biết.
 
 ### 🤝 Đóng góp
 
