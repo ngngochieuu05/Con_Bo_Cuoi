@@ -2,11 +2,12 @@
 
 <a href="#english-version">🇬🇧 English</a> · <a href="#vietnamese-version">🇻🇳 Tiếng Việt</a>
 
----
+<br/>
 
-<img src="img/banner_cow_lgbt.jpg" alt="Con Bò Cười Banner" width="100%" style="border-radius:12px; opacity:0.18; position:absolute;" />
-
-<img src="img/logo_hd_lgbt.jpg" alt="Con Bò Cười Logo" width="120" style="border-radius:20px;" />
+<table border="0" cellpadding="0" cellspacing="0"><tr><td align="center">
+<img src="img/banner_cow_lgbt.jpg" alt="Banner" width="760" /><br/>
+<img src="img/logo_hd_lgbt.jpg" alt="Logo" width="110" />
+</td></tr></table>
 
 # Con Bò Cười
 
