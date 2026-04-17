@@ -4,9 +4,13 @@
 
 ---
 
-# 🐄 Con Bò Cười
+<img src="img/banner_cow_lgbt.jpg" alt="Con Bò Cười Banner" width="100%" style="border-radius:12px; opacity:0.18; position:absolute;" />
 
-**AI-Powered Cattle Monitoring System**
+<img src="img/logo_hd_lgbt.jpg" alt="Con Bò Cười Logo" width="120" style="border-radius:20px;" />
+
+# Con Bò Cười
+
+**HD - LGBT**
 
 [![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Flet](https://img.shields.io/badge/Flet-0.28.3-00A8E8?style=flat-square)](https://flet.dev)
