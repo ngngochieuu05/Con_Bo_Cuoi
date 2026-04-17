@@ -78,7 +78,7 @@ class LiveMonitoringController:
                             height=220,
                             border_radius=12,
                             bgcolor=ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
-                            alignment=ft.Alignment.CENTER,
+                            alignment=ft.alignment.center,
                             content=self.stream_image,
                         ),
                         ft.Row(controls=[self.connect_btn, self.snapshot_btn]),

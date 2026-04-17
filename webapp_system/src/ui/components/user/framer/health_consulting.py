@@ -952,7 +952,7 @@ def _make_ai_chat(page: ft.Page | None, on_back=None):  # noqa: C901
     send_btn = ft.Container(
         width=40, height=40, border_radius=20,
         bgcolor=PRIMARY,
-        alignment=ft.Alignment.CENTER,
+        alignment=ft.alignment.center,
         ink=True,
         on_click=_send_text,
         content=ft.Icon(ft.Icons.SEND_ROUNDED, size=18, color=ft.Colors.WHITE),
