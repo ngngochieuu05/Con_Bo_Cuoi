@@ -15,8 +15,15 @@ def login(ten_dang_nhap: str, mat_khau: str, page: ft.Page):
     if user:
         role = user.get("vai_tro", "farmer")
         page.data["user_role"] = role
-        page.data["user_id"] = str(user.get("id_user", ""))
-        page.data["ho_ten"] = user.get("ho_ten", "")
+        page.data["user_id"]   = str(user.get("id_user", ""))
+        page.data["ho_ten"]    = user.get("ho_ten", "")
+        # Ghi activity log
+        try:
+            from bll.services.activity_service import log_action
+            log_action(user.get("id_user"), "LOGIN",
+                       f"{ten_dang_nhap.strip()} ({role})")
+        except Exception:
+            pass
         return role
 
 

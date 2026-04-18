@@ -125,11 +125,18 @@ def update_model(id_model: int, updates: dict) -> dict | None:
 # ─── internal ────────────────────────────────────────────────────────────────
 
 def _clear_ai_cache_if_disease(id_model: int):
-    """Xoá cache YOLO khi model disease bị thay đổi."""
+    """Xoá cache YOLO khi bất kỳ model nào bị thay đổi."""
     try:
+        # Xoá cache monitor_service (cattle_detect, behavior, disease)
+        from bll.services.monitor_service import clear_model_cache
+        clear_model_cache()
+    except Exception:
+        pass
+    try:
+        # Xoá thêm cache tu_van_ai nếu là disease
         rec = get_model_by_id(id_model)
         if rec and rec.get("loai_mo_hinh") == "disease":
-            from bll.user.farmer.tu_van_ai import clear_model_cache
-            clear_model_cache()
+            from bll.user.farmer.tu_van_ai import clear_model_cache as _clr
+            _clr()
     except Exception:
         pass

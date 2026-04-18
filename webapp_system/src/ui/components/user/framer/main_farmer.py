@@ -27,9 +27,10 @@ def FarmerMainScreen(page: ft.Page, on_logout=None):
         ("utilities", "Tiện ích", "BUILD"),
         ("settings", "Cài đặt", "SETTINGS"),
     ]
-    selected = {"key": "monitoring"}
+    selected = {"key": "dashboard"}
     content_holder = ft.Container(expand=True)
     root = ft.Container(expand=True)
+    _ctrl_cache: dict = {}  # cache controller instances that hold state
 
     def select_view(key: str):
         selected["key"] = key
@@ -37,11 +38,17 @@ def FarmerMainScreen(page: ft.Page, on_logout=None):
 
     def render():
         if selected["key"] == "profile":
-            content_holder.content = build_profile_farmer(page, on_back=lambda: select_view("monitoring"))
+            content_holder.content = build_profile_farmer(page, on_back=lambda: select_view("dashboard"))
         elif selected["key"] == "settings":
             content_holder.content = build_farmer_settings(on_logout=on_logout)
         elif selected["key"] == "consulting":
             content_holder.content = build_health_consulting(page=page)
+        elif selected["key"] == "monitoring":
+            # Cache controller so stream state is preserved across nav
+            if "monitoring" not in _ctrl_cache:
+                from ui.components.user.framer.live_monitoring import LiveMonitoringController
+                _ctrl_cache["monitoring"] = LiveMonitoringController(page)
+            content_holder.content = _ctrl_cache["monitoring"].root
         else:
             content_holder.content = views.get(selected["key"], build_farmer_dashboard)()
         root.content = build_role_shell(

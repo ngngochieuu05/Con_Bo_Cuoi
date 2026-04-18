@@ -200,8 +200,8 @@ def _user_card(u: dict, on_refresh) -> ft.Control:
 
             def _save_m(e, _mid=mid, sv=_sv, tf=pt_tf, lb=save_lbl):
                 path = (tf.value or "").strip()
-                if path and not path.endswith(".pt"):
-                    lb.value = "Phải là .pt"; lb.color = ft.Colors.AMBER_300
+                if path and not (path.endswith(".pt") or path.endswith(".onnx")):
+                    lb.value = "Phải là .pt hoặc .onnx"; lb.color = ft.Colors.AMBER_300
                     lb.update(); return
                 update_model_config(_mid, sv["conf"], sv["iou"], path)
                 lb.value = "Đã lưu"; lb.color = ft.Colors.GREEN_300; lb.update()

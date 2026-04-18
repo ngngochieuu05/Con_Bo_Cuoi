@@ -8,6 +8,7 @@ from dal.model_repo import init_seed as _seed_models
 from dal.camera_chuong_repo import init_seed as _seed_cameras
 from dal.canh_bao_repo import init_seed as _seed_alerts
 from dal.dataset_repo import init_seed as _seed_dataset
+import dal.activity_log_repo  # noqa: F401 — ensures db file is created on first run
 
 
 def init_all():

@@ -121,7 +121,8 @@ if __name__ == "__main__":
             # -- Lưu ảnh QR ra file để tiện dùng --
             _qr_img_path = Path(__file__).parent.parent.parent / "qr_access.png"
             img = qr.make_image(fill_color="black", back_color="white")
-            img.save(str(_qr_img_path))
+            with open(_qr_img_path, "wb") as _f:
+                img.save(_f)
             print(f"\n  💾 QR đã lưu: {_qr_img_path}")
         except Exception as _qr_err:
             print(f"  ⚠  Không tạo được QR: {_qr_err}")

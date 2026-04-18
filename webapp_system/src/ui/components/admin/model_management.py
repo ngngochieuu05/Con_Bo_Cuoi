@@ -115,8 +115,8 @@ def _model_card(m: dict, on_refresh) -> ft.Control:
 
     def _save_cfg(e):
         path = (pt_field.value or "").strip()
-        if path and not path.endswith(".pt"):
-            save_msg.value = "File phải có đuôi .pt"
+        if path and not (path.endswith(".pt") or path.endswith(".onnx")):
+            save_msg.value = "File phải có đuôi .pt hoặc .onnx"
             save_msg.color = ft.Colors.AMBER_300
             save_msg.update()
             return
@@ -258,8 +258,7 @@ def build_model_management():
     list_ref = ft.Ref[ft.Column]()
 
     def refresh():
-        all_models = get_all_models()
-        models = [m for m in all_models if m.get("loai_mo_hinh") == "disease"]
+        models = get_all_models()
         cards = (
             [_model_card(m, refresh) for m in models]
             if models else [empty_state("Chưa có mô hình nào")]

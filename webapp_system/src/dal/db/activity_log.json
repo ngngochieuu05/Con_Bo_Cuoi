@@ -1,0 +1,68 @@
+{
+  "records": [
+    {
+      "id_log": 1,
+      "user_id": 1,
+      "action": "LOGIN",
+      "details": "admin (admin)",
+      "timestamp": "2026-04-18T22:55:52.294175"
+    },
+    {
+      "id_log": 2,
+      "user_id": 4,
+      "action": "LOGIN",
+      "details": "HieuBenTau (farmer)",
+      "timestamp": "2026-04-18T23:14:50.420719"
+    },
+    {
+      "id_log": 3,
+      "user_id": 4,
+      "action": "LOGIN",
+      "details": "HieuBenTau (farmer)",
+      "timestamp": "2026-04-18T23:15:57.832804"
+    },
+    {
+      "id_log": 4,
+      "user_id": 4,
+      "action": "LOGIN",
+      "details": "HieuBenTau (farmer)",
+      "timestamp": "2026-04-18T23:22:21.501384"
+    },
+    {
+      "id_log": 5,
+      "user_id": 4,
+      "action": "LOGIN",
+      "details": "HieuBenTau (farmer)",
+      "timestamp": "2026-04-18T23:25:06.908529"
+    },
+    {
+      "id_log": 6,
+      "user_id": 4,
+      "action": "LOGIN",
+      "details": "HieuBenTau (farmer)",
+      "timestamp": "2026-04-18T23:29:57.886637"
+    },
+    {
+      "id_log": 7,
+      "user_id": 4,
+      "action": "LOGIN",
+      "details": "HieuBenTau (farmer)",
+      "timestamp": "2026-04-18T23:31:56.711202"
+    },
+    {
+      "id_log": 8,
+      "user_id": 4,
+      "action": "LOGIN",
+      "details": "HieuBenTau (farmer)",
+      "timestamp": "2026-04-18T23:34:34.707485"
+    },
+    {
+      "id_log": 9,
+      "user_id": 1,
+      "action": "LOGIN",
+      "details": "admin (admin)",
+      "timestamp": "2026-04-18T23:38:55.014377"
+    }
+  ],
+  "next_id": 10
+}
