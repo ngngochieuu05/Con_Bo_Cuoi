@@ -12,8 +12,6 @@ from ui.theme import build_role_shell
 def ExpertMainScreen(page: ft.Page, on_logout=None):
     views = {
         "dashboard": build_expert_dashboard,
-        "raw_data": build_raw_data_review,
-        "consulting": build_consulting_review,
         "utilities": build_expert_utilities,
         "settings": build_expert_settings,
     }
@@ -37,6 +35,8 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
             content_holder.content = build_profile_expert(page, on_back=lambda: select_view("dashboard"))
         elif selected["key"] == "settings":
             content_holder.content = build_expert_settings(on_logout=on_logout)
+        elif selected["key"] == "raw_data":
+            content_holder.content = build_raw_data_review(page=page)
         elif selected["key"] == "consulting":
             content_holder.content = build_consulting_review(page=page)
         else:

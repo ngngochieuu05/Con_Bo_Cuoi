@@ -31,7 +31,7 @@ def main(page: ft.Page):
     page.window.height = 852
     page.window.resizable = True
     # Đánh dấu phông mobile cho build_role_shell dùng
-    page.data = {"is_mobile": True}
+    page.data = {"is_mobile": True, "upload_dir": str(Path(__file__).parent.parent.parent / "uploads")}
 
     def logout_to_login():
         perform_logout(page, show_login)
@@ -93,16 +93,48 @@ if __name__ == "__main__":
 
     if _mode == "web":
         _ip = get_local_ip()
-        print("\n" + "=" * 50)
+        _url = f"http://{_ip}:{_port}"
+
+        # -- In thông tin kết nối --
+        print("\n" + "=" * 52)
         print(f"  🌐 WEB MODE đang chạy")
         print(f"  💻 Máy tính : http://localhost:{_port}")
-        print(f"  📱 Phone/LAN: http://{_ip}:{_port}")
-        print("  ✔  Phone cùng WiFi nhập URL trên vào trình duyệt")
-        print("=" * 50 + "\n")
+        print(f"  📱 Phone/LAN: {_url}")
+        print("=" * 52)
+
+        # -- Tạo QR code trong terminal (ASCII) --
+        try:
+            import qrcode
+            import qrcode.constants
+
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=1,
+                border=1,
+            )
+            qr.add_data(_url)
+            qr.make(fit=True)
+            print("\n  📷 Quét QR bằng điện thoại (cùng WiFi):\n")
+            qr.print_ascii(invert=True)
+
+            # -- Lưu ảnh QR ra file để tiện dùng --
+            _qr_img_path = Path(__file__).parent.parent.parent / "qr_access.png"
+            img = qr.make_image(fill_color="black", back_color="white")
+            img.save(str(_qr_img_path))
+            print(f"\n  💾 QR đã lưu: {_qr_img_path}")
+        except Exception as _qr_err:
+            print(f"  ⚠  Không tạo được QR: {_qr_err}")
+
+        print("=" * 52 + "\n")
+
+    _upload_dir = Path(__file__).parent.parent.parent / "uploads"
+    _upload_dir.mkdir(exist_ok=True)
 
     ft.app(
         target=main,
         assets_dir=str(Path(__file__).parent.parent / "data"),
+        upload_dir=str(_upload_dir),
         view=ft.AppView.WEB_BROWSER if _mode == "web" else ft.AppView.FLET_APP,
         host="0.0.0.0" if _mode == "web" else None,
         port=_port if _mode == "web" else 0,
