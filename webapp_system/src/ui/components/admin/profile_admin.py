@@ -2,12 +2,18 @@ import base64
 
 import flet as ft
 
-from bll.services.auth_service import get_user_by_id, update_profile, change_password_safe
+from bll.services.auth_service import (
+    get_session_value,
+    get_user_by_id,
+    update_profile,
+    change_password_safe,
+    sync_profile_session,
+)
 from ui.theme import button_style, glass_container, inline_field, PRIMARY
 
 
 def build_profile_admin(page: ft.Page, on_back=None):
-    user_id = int(page.client_storage.get("user_id") or 0)
+    user_id = int(get_session_value(page, "user_id", 0) or 0)
     user = get_user_by_id(user_id) or {}
     avatar_b64 = {"val": user.get("anh_dai_dien", "") or ""}
 
@@ -88,9 +94,9 @@ def build_profile_admin(page: ft.Page, on_back=None):
         updates = {"ho_ten": ho_ten}
         if avatar_b64["val"]:
             updates["anh_dai_dien"] = avatar_b64["val"]
-            page.client_storage.set("anh_dai_dien", avatar_b64["val"])
+            sync_profile_session(page, anh_dai_dien=avatar_b64["val"])
         update_profile(user_id, updates)
-        page.client_storage.set("ho_ten", ho_ten)
+        sync_profile_session(page, ho_ten=ho_ten)
         snack("Đã lưu thông tin thành công!")
 
     def save_password(e):
