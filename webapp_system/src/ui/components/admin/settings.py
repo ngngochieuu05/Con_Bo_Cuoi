@@ -7,7 +7,14 @@ import flet as ft
 
 from bll.services.monitor_service import get_local_ip, load_config, save_config
 from bll.user.farmer.tu_van_ai import clear_model_cache
-from ui.theme import button_style, collapsible_section, glass_container, inline_field, page_header
+from ui.theme import (
+    button_style,
+    collapsible_section,
+    glass_container,
+    inline_field,
+    page_header,
+    status_badge,
+)
 
 
 def build_admin_settings(on_logout=None):
@@ -36,7 +43,6 @@ def build_admin_settings(on_logout=None):
     )
     mode_status = ft.Text("", size=11, color=ft.Colors.WHITE70)
     yolo_status = ft.Text("", size=11, color=ft.Colors.WHITE70)
-    copy_status = ft.Text("", size=10, color=ft.Colors.GREEN_300)
     sw_realtime = ft.Switch(label="Canh bao realtime", value=True)
     sw_email = ft.Switch(label="Email tong hop", value=True)
     sw_auto_assign = ft.Switch(label="Tu dong gan nguoi xu ly", value=False)
@@ -48,7 +54,13 @@ def build_admin_settings(on_logout=None):
     def _build_url() -> str:
         return f"http://{get_local_ip()}:{int((port_field.value or '8080').strip() or '8080')}"
 
-    url_text = ft.Text(_build_url() if mode_dropdown.value == "web" else "Bat web mode de dung LAN", size=13, weight=ft.FontWeight.W_700, color=ft.Colors.CYAN_200, selectable=True)
+    url_text = ft.Text(
+        _build_url() if mode_dropdown.value == "web" else "Bat web mode de dung LAN",
+        size=13,
+        weight=ft.FontWeight.W_700,
+        color=ft.Colors.CYAN_200,
+        selectable=True,
+    )
 
     def _update_mode_visibility(e=None):
         port_field.visible = mode_dropdown.value == "web"
@@ -76,6 +88,7 @@ def build_admin_settings(on_logout=None):
                     except Exception:
                         if e.page:
                             e.page.window.close()
+
                 threading.Thread(target=_restart, daemon=True).start()
             else:
                 mode_status.value = "Da luu cau hinh."
@@ -116,14 +129,55 @@ def build_admin_settings(on_logout=None):
         spacing=14,
         scroll=ft.ScrollMode.AUTO,
         controls=[
-            page_header("Cai dat he thong", "Nhom theo accordion de mobile de quet hon.", icon_name="SETTINGS"),
+            page_header(
+                "Cai dat he thong",
+                "Tach theo workspace van hanh de admin quet nhanh, biet muc nao tac dong runtime.",
+                icon_name="SETTINGS",
+            ),
+            glass_container(
+                padding=16,
+                radius=20,
+                content=ft.Column(
+                    spacing=12,
+                    controls=[
+                        ft.Row(
+                            spacing=8,
+                            wrap=True,
+                            controls=[
+                                status_badge("Runtime safe", "primary"),
+                                status_badge("Network config", "warning" if mode_dropdown.value == "web" else "neutral"),
+                                status_badge("Session control", "secondary"),
+                            ],
+                        ),
+                        ft.Text(
+                            "Khung nay uu tien cau hinh anh huong truc tiep den van hanh. "
+                            "Nhung muc chua co logic backend day du duoc ghi ro la preview.",
+                            size=11,
+                            color=ft.Colors.WHITE70,
+                        ),
+                    ],
+                ),
+            ),
             glass_container(
                 padding=14,
                 radius=18,
                 content=ft.Column(
                     spacing=10,
                     controls=[
-                        collapsible_section("Thong bao", ft.Column(spacing=8, controls=[sw_realtime, sw_email]), initially_open=True),
+                        collapsible_section(
+                            "Thong bao va truc",
+                            ft.Column(
+                                spacing=8,
+                                controls=[
+                                    sw_realtime,
+                                    sw_email,
+                                    ft.Text("Dung cho nhom truc va nhan tong hop cuoi ca.", size=11, color=ft.Colors.WHITE54),
+                                ],
+                            ),
+                            note="Cau hinh kenh thong bao cho admin va ngoi truc",
+                            icon_name="NOTIFICATIONS_ACTIVE",
+                            initially_open=True,
+                        ),
                         collapsible_section(
                             "Mac dinh canh bao",
                             ft.Column(
@@ -139,7 +193,8 @@ def build_admin_settings(on_logout=None):
                                     ),
                                 ],
                             ),
-                            initially_open=False,
+                            note="Rule fallback khi user moi vao ca truc",
+                            icon_name="RULE",
                         ),
                         collapsible_section(
                             "AI va inference",
@@ -148,12 +203,19 @@ def build_admin_settings(on_logout=None):
                                 controls=[
                                     yolo_dropdown,
                                     yolo_status,
-                                    ft.ElevatedButton("Luu AI", icon=ft.Icons.SAVE, style=button_style("primary"), on_click=_save_yolo),
+                                    ft.ElevatedButton(
+                                        "Luu AI",
+                                        icon=ft.Icons.SAVE,
+                                        style=button_style("primary"),
+                                        on_click=_save_yolo,
+                                    ),
                                 ],
                             ),
+                            note="Tac dong toi mode suy luan va cache model",
+                            icon_name="SMART_TOY",
                         ),
                         collapsible_section(
-                            "Bao mat",
+                            "Bao mat va role",
                             ft.Column(
                                 spacing=8,
                                 controls=[
@@ -162,6 +224,8 @@ def build_admin_settings(on_logout=None):
                                     security_note,
                                 ],
                             ),
+                            note="Mot phan la preview, chua buoc vao policy day du",
+                            icon_name="ADMIN_PANEL_SETTINGS",
                         ),
                         collapsible_section(
                             "Sao luu va log",
@@ -179,6 +243,8 @@ def build_admin_settings(on_logout=None):
                                     ),
                                 ],
                             ),
+                            note="Tac vu bao toan du lieu va audit trail",
+                            icon_name="BACKUP",
                         ),
                         collapsible_section(
                             "LAN va app mode",
@@ -189,15 +255,33 @@ def build_admin_settings(on_logout=None):
                                     port_field,
                                     ft.Container(
                                         padding=ft.padding.symmetric(horizontal=12, vertical=10),
-                                        border_radius=12,
+                                        border_radius=14,
                                         bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.CYAN),
-                                        border=ft.border.all(1, ft.Colors.with_opacity(0.25, ft.Colors.CYAN)),
-                                        content=ft.Column(spacing=6, controls=[ft.Text("URL LAN", size=11, color=ft.Colors.CYAN_100), url_text, copy_status]),
+                                        border=ft.border.all(1, ft.Colors.with_opacity(0.24, ft.Colors.CYAN)),
+                                        content=ft.Column(
+                                            spacing=6,
+                                            controls=[
+                                                ft.Text("URL LAN", size=11, color=ft.Colors.CYAN_100),
+                                                url_text,
+                                                ft.Text(
+                                                    "Dung khi can mo he thong trong mang noi bo thay vi desktop local.",
+                                                    size=10,
+                                                    color=ft.Colors.WHITE60,
+                                                ),
+                                            ],
+                                        ),
                                     ),
                                     mode_status,
-                                    ft.ElevatedButton("Luu mode", icon=ft.Icons.SAVE, style=button_style("warning"), on_click=_save_mode),
+                                    ft.ElevatedButton(
+                                        "Luu mode",
+                                        icon=ft.Icons.SAVE,
+                                        style=button_style("warning"),
+                                        on_click=_save_mode,
+                                    ),
                                 ],
                             ),
+                            note="Muc co kha nang restart app neu doi desktop/web",
+                            icon_name="LAN",
                             initially_open=True,
                         ),
                         collapsible_section(
@@ -206,9 +290,16 @@ def build_admin_settings(on_logout=None):
                                 spacing=8,
                                 controls=[
                                     ft.Text("Ket thuc phien hien tai va quay lai dang nhap.", size=11, color=ft.Colors.WHITE60),
-                                    ft.ElevatedButton("Dang xuat", icon=ft.Icons.LOGOUT, style=button_style("danger"), on_click=lambda e: on_logout() if on_logout else None),
+                                    ft.ElevatedButton(
+                                        "Dang xuat",
+                                        icon=ft.Icons.LOGOUT,
+                                        style=button_style("danger"),
+                                        on_click=lambda e: on_logout() if on_logout else None,
+                                    ),
                                 ],
                             ),
+                            note="Tac dong ngay den session hien tai",
+                            icon_name="LOGOUT",
                         ),
                         generic_status,
                     ],
