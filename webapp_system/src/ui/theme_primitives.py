@@ -256,6 +256,43 @@ def overflow_action_button(items: list[tuple[str, str, object]]) -> ft.PopupMenu
     )
 
 
+def open_bottom_sheet(page: ft.Page, title: str, body: ft.Control) -> ft.BottomSheet:
+    sheet = ft.BottomSheet(
+        enable_drag=True,
+        show_drag_handle=True,
+        is_scroll_controlled=True,
+        content=ft.SafeArea(
+            minimum_padding=ft.padding.only(left=12, right=12, top=8, bottom=12),
+            content=ft.Container(
+                border_radius=16,
+                bgcolor=ft.Colors.with_opacity(0.98, "#17232D"),
+                border=ft.border.all(1, ft.Colors.with_opacity(0.18, ft.Colors.WHITE)),
+                padding=ft.padding.all(12),
+                content=ft.Column(
+                    tight=True,
+                    spacing=10,
+                    controls=[
+                        ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Text(title, size=15, weight=ft.FontWeight.W_700),
+                                ft.IconButton(
+                                    icon=ft.Icons.CLOSE,
+                                    icon_size=16,
+                                    on_click=lambda e: page.close(sheet),
+                                ),
+                            ],
+                        ),
+                        body,
+                    ],
+                ),
+            ),
+        ),
+    )
+    page.open(sheet)
+    return sheet
+
+
 def collapsible_section(
     title: str,
     content: ft.Control,

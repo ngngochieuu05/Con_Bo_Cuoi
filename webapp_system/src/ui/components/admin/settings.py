@@ -39,6 +39,11 @@ def build_admin_settings(on_logout=None):
     copy_status = ft.Text("", size=10, color=ft.Colors.GREEN_300)
     sw_realtime = ft.Switch(label="Canh bao realtime", value=True)
     sw_email = ft.Switch(label="Email tong hop", value=True)
+    sw_auto_assign = ft.Switch(label="Tu dong gan nguoi xu ly", value=False)
+    default_sla = inline_field("SLA mac dinh (phut)", ft.Icons.TIMER, value="120", keyboard_type=ft.KeyboardType.NUMBER)
+    security_note = ft.Text("2FA va role lock se duoc ap dung o ban tiep theo.", size=11, color=ft.Colors.WHITE54)
+    backup_note = ft.Text("Lich backup JSON + log xoay vong theo ngay.", size=11, color=ft.Colors.WHITE54)
+    generic_status = ft.Text("", size=11, color=ft.Colors.WHITE60)
 
     def _build_url() -> str:
         return f"http://{get_local_ip()}:{int((port_field.value or '8080').strip() or '8080')}"
@@ -94,6 +99,16 @@ def build_admin_settings(on_logout=None):
             yolo_status.color = ft.Colors.RED_300
         yolo_status.update()
 
+    def _save_alert_defaults(e):
+        generic_status.value = "Da luu mac dinh canh bao."
+        generic_status.color = ft.Colors.GREEN_300
+        generic_status.update()
+
+    def _run_backup_now(e):
+        generic_status.value = "Da kich hoat backup thu cong (mock flow)."
+        generic_status.color = ft.Colors.CYAN_200
+        generic_status.update()
+
     mode_dropdown.on_change = _update_mode_visibility
 
     return ft.Column(
@@ -110,6 +125,23 @@ def build_admin_settings(on_logout=None):
                     controls=[
                         collapsible_section("Thong bao", ft.Column(spacing=8, controls=[sw_realtime, sw_email]), initially_open=True),
                         collapsible_section(
+                            "Mac dinh canh bao",
+                            ft.Column(
+                                spacing=8,
+                                controls=[
+                                    sw_auto_assign,
+                                    default_sla,
+                                    ft.ElevatedButton(
+                                        "Luu mac dinh",
+                                        icon=ft.Icons.SAVE,
+                                        style=button_style("secondary"),
+                                        on_click=_save_alert_defaults,
+                                    ),
+                                ],
+                            ),
+                            initially_open=False,
+                        ),
+                        collapsible_section(
                             "AI va inference",
                             ft.Column(
                                 spacing=8,
@@ -117,6 +149,34 @@ def build_admin_settings(on_logout=None):
                                     yolo_dropdown,
                                     yolo_status,
                                     ft.ElevatedButton("Luu AI", icon=ft.Icons.SAVE, style=button_style("primary"), on_click=_save_yolo),
+                                ],
+                            ),
+                        ),
+                        collapsible_section(
+                            "Bao mat",
+                            ft.Column(
+                                spacing=8,
+                                controls=[
+                                    ft.Switch(label="Khoa doi role khi dang nhap", value=True),
+                                    ft.Switch(label="Bat xac thuc buoc 2 (preview)", value=False),
+                                    security_note,
+                                ],
+                            ),
+                        ),
+                        collapsible_section(
+                            "Sao luu va log",
+                            ft.Column(
+                                spacing=8,
+                                controls=[
+                                    ft.Switch(label="Backup tu dong luc 00:30", value=True),
+                                    ft.Switch(label="Giu log 14 ngay", value=True),
+                                    backup_note,
+                                    ft.ElevatedButton(
+                                        "Backup ngay",
+                                        icon=ft.Icons.BACKUP,
+                                        style=button_style("warning"),
+                                        on_click=_run_backup_now,
+                                    ),
                                 ],
                             ),
                         ),
@@ -150,6 +210,7 @@ def build_admin_settings(on_logout=None):
                                 ],
                             ),
                         ),
+                        generic_status,
                     ],
                 ),
             ),
