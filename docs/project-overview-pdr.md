@@ -22,11 +22,11 @@
 | Layer | Technology |
 |-------|-----------|
 | **Runtime** | Python 3.14 |
-| **UI Framework** | Flet 0.82.2 (cross-platform desktop/web) |
+| **UI Framework** | Flet 0.28.3 (cross-platform desktop/web) |
 | **Computer Vision** | OpenCV, YOLO v8 |
 | **Storage** | JSON (development), PostgreSQL-ready (BaseRepo abstraction) |
 | **Networking** | Requests, socket (LAN IP detection) |
-| **Auth** | SHA256 password hashing, session via page.client_storage |
+| **Auth** | PBKDF2-HMAC-SHA256 password hashing, session via page.data (+ legacy client_storage mirror) |
 
 **Entry Point:** `python webapp_system/src/main.py`
 
@@ -41,7 +41,7 @@
 
 ### FR1: Multi-Role Authentication
 - Login/register with email-like username (ten_dang_nhap)
-- SHA256 password hashing, no plaintext storage
+- PBKDF2-HMAC-SHA256 password hashing, no plaintext storage
 - Session persistence via browser storage (non-persistent; clears on restart)
 - Logout with immediate session purge
 - Forgot password UI (backend email integration not yet implemented)
@@ -106,7 +106,7 @@
 - Session recovery on app restart
 
 ### NFR3: Security
-- Passwords: SHA256 hashed (bcrypt recommended for production)
+- Passwords: PBKDF2-HMAC-SHA256 with per-password salt; legacy SHA-256 accepted only for transparent upgrade
 - Session: client-side storage (consider encrypted cookies for web deployment)
 - Data: no PII in logs, sanitize model file paths
 - Role enforcement: UI-level only (backend API should validate on each request)
@@ -127,7 +127,7 @@
 - File size: max 200 LOC per file
 - Naming: Vietnamese snake_case for DB fields, kebab-case for filenames
 - Dependency injection: services/repos injected via constructor or page context
-- No global state: all state is local or page.client_storage
+- No global state: all state is local or stored in page/session helpers
 
 ---
 
@@ -160,7 +160,7 @@ Centralized, single-source-of-truth for:
 
 ### State Management
 
-- **Session**: page.client_storage (keys: user_role, user_id, ho_ten)
+- **Session**: `page.data` is the source of truth (keys: user_role, user_id, ho_ten, anh_dai_dien) with legacy mirror to `page.client_storage`
 - **UI State**: functional closures with mutable dicts (e.g., _state = {"key": value})
 - **Control Refs**: ref.current.controls = [...] + ref.current.update() for list refreshes
 - **No Redux/Context**: keep it simple; Flet doesn't require complex state libraries
@@ -171,7 +171,7 @@ Centralized, single-source-of-truth for:
 
 | Table | Primary Key | Key Fields | Notes |
 |-------|-------------|-----------|-------|
-| **tai_khoan** | id_user | ten_dang_nhap, mat_khau (SHA256), vai_tro, ho_ten | User accounts |
+| **tai_khoan** | id_user | ten_dang_nhap, mat_khau (PBKDF2 or legacy SHA256), vai_tro, ho_ten | User accounts |
 | **camera_chuong** | id_camera_chuong | id_chuong, khu_vuc_chuong, id_camera, id_user, trang_thai | Camera-to-stall binding |
 | **canh_bao_su_co** | id_canh_bao | loai_canh_bao, trang_thai (CHUA_XU_LY/DA_XU_LY/QUA_HAN), id_user | Alert events |
 | **model** | id_model | ten_mo_hinh, loai_mo_hinh, conf, iou, duong_dan_file | YOLO configs |
@@ -215,7 +215,7 @@ Centralized, single-source-of-truth for:
 
 1. **Email Backend**: Forgot password UI exists but email service not implemented. Recommend Amazon SES or SendGrid integration.
 2. **Backend AI Server**: System is fully functional offline with JSON store. Optional Flask/FastAPI backend for advanced inference (e.g., GPU acceleration).
-3. **Session Persistence**: page.client_storage is non-persistent. For production web, implement signed cookies or JWT tokens.
+3. **Session Persistence**: current runtime keeps session in `page.data` and mirrors it to `page.client_storage` for compatibility. For production web, implement signed cookies or JWT tokens.
 4. **Role-Based Access Control**: Alert resolution currently lacks UI-level role gates. Any authenticated user can resolve alerts. Add ACL checks in DAL layer.
 5. **Windows Camera Support**: OpenCV on Windows requires `cv2.CAP_DSHOW` backend + BUFFERSIZE=1. Never call `cap.release()` (C++ crash risk).
 6. **Concurrency**: Flet is single-threaded. Background camera polling uses threading; ensure all UI updates via page.update() (not control.update()).

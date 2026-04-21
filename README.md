@@ -41,7 +41,7 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                      UI Layer                           │
-│  admin/   expert/   farmer/   auth/   theme.py          │
+│  admin/   expert/   farmer/   auth/   theme.py facade   │
 │  Glassmorphism UI · Airbnb buttons · Role-based shell   │
 ├─────────────────────────────────────────────────────────┤
 │                   BLL Layer (Services)                  │
@@ -112,7 +112,8 @@ Con_Bo_Cuoi/
 │       │   ├── base_repo.py         # Generic CRUD (JSON / DB-ready)
 │       │   └── db/                  # Runtime JSON files (gitignored)
 │       └── ui/
-│           ├── theme.py             # Design tokens + shared components
+│           ├── theme.py             # Compatibility facade for shared UI helpers
+│           ├── theme_*.py           # Tokens, primitives, shells, auth/table/nav helpers
 │           └── components/
 │               ├── auth/            # Login, register, forgot password
 │               ├── admin/           # Dashboard, user/model/camera mgmt
@@ -124,7 +125,7 @@ Con_Bo_Cuoi/
 
 ### 🎨 Design System
 
-All UI uses **Glassmorphism** + **Airbnb button style**, centralized in `ui/theme.py`:
+All UI uses **Glassmorphism** + **Airbnb button style**, exported from `ui/theme.py` and implemented in split `theme_*` modules:
 
 ```python
 from ui.theme import glass_container, button_style, build_role_shell
@@ -146,7 +147,7 @@ build_role_shell(page, role="farmer", content=my_screen)
 | AI/ML | YOLOv8 (Ultralytics) · PyTorch |
 | Image Processing | Pillow 12+ · NumPy 2.4+ |
 | Data Storage | JSON (dev) · PostgreSQL-ready |
-| Auth | SHA-256 hashing · session via page.data |
+| Auth | PBKDF2-HMAC-SHA256 · session via page.data (+ legacy client_storage mirror) |
 
 ### 🗺️ Roadmap
 
@@ -164,7 +165,7 @@ We take security seriously. Please read our full [Security Policy](SECURITY.md) 
 **Quick summary:**
 
 - **Do NOT** open a public GitHub issue for vulnerabilities — email maintainers directly
-- Passwords hashed with SHA-256 · sessions cleared on logout · no credentials in repo
+- Passwords hashed with PBKDF2-HMAC-SHA256 (legacy SHA-256 auto-upgrade) · sessions cleared on logout · no credentials in repo
 - Default seed accounts use weak passwords — **change before any production deployment**
 
 → See [SECURITY.md](SECURITY.md) for supported versions, reporting instructions, and known limitations.
@@ -292,7 +293,7 @@ Xem chính sách bảo mật đầy đủ tại [SECURITY.md](SECURITY.md).
 **Tóm tắt:**
 
 - **Không** mở public issue — liên hệ maintainers trực tiếp qua email
-- Mật khẩu hash SHA-256 · session xóa khi đăng xuất · không commit credential
+- Mật khẩu hash bằng PBKDF2-HMAC-SHA256 (tự nâng cấp SHA-256 legacy) · session xóa khi đăng xuất · không commit credential
 - Tài khoản seed mặc định có mật khẩu yếu — **thay đổi trước khi deploy production**
 
 → Xem [SECURITY.md](SECURITY.md) để biết phiên bản được hỗ trợ, hướng dẫn báo cáo, và các giới hạn đã biết.
