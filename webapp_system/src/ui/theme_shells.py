@@ -13,11 +13,40 @@ def build_background(content: ft.Control):
         controls=[
             ft.Container(
                 expand=True,
-                image=ft.DecorationImage(src="backround.png", fit="cover"),
+                bgcolor="#0E171D",
+                image=ft.DecorationImage(
+                    src="backround.png",
+                    fit="cover",
+                    opacity=0.22,
+                ),
                 gradient=ft.LinearGradient(
                     begin=ft.alignment.top_left,
                     end=ft.alignment.bottom_right,
-                    colors=["#18313CD9", "#1F3A46E6", "#264452F0"],
+                    colors=["#112028D8", "#18303CD2", "#214A55CC"],
+                ),
+            ),
+            ft.Container(
+                expand=True,
+                gradient=ft.LinearGradient(
+                    begin=ft.alignment.center_left,
+                    end=ft.alignment.center_right,
+                    colors=["#091117D8", "#091117B8", "#09111742"],
+                ),
+            ),
+            ft.Container(
+                expand=True,
+                gradient=ft.RadialGradient(
+                    center=ft.Alignment(0.78, 0.72),
+                    radius=0.92,
+                    colors=["#83D9FF24", "#00000000"],
+                ),
+            ),
+            ft.Container(
+                expand=True,
+                gradient=ft.RadialGradient(
+                    center=ft.Alignment(-0.76, -0.70),
+                    radius=1.08,
+                    colors=["#6FD59D18", "#00000000"],
                 ),
             ),
             ft.Container(
@@ -25,10 +54,9 @@ def build_background(content: ft.Control):
                 gradient=ft.LinearGradient(
                     begin=ft.alignment.top_center,
                     end=ft.alignment.bottom_center,
-                    colors=["#37546466", "#12202ADD"],
+                    colors=["#0A131740", "#0A131714", "#0A131788"],
                 ),
             ),
-            ft.Container(expand=True, bgcolor=ft.Colors.with_opacity(0.48, "#081218")),
             content,
         ],
     )
@@ -60,9 +88,9 @@ def build_role_shell(
 
     if is_mobile:
         header = ft.Container(
-            padding=ft.padding.only(left=16, right=16, top=14, bottom=10),
-            bgcolor=ft.Colors.with_opacity(0.18, "#0F1A20"),
-            border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE))),
+            padding=ft.padding.only(left=16, right=16, top=14, bottom=12),
+            bgcolor=ft.Colors.with_opacity(0.62, "#182833"),
+            border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.10, "#F4F7FA"))),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -72,7 +100,7 @@ def build_role_shell(
                         tight=True,
                         controls=[
                             ft.Text(role_title, size=15, weight=ft.FontWeight.W_700),
-                            ft.Text(role_subtitle, size=10, color=ft.Colors.WHITE60),
+                            ft.Text(role_subtitle, size=10, color="#D2DEE6"),
                         ],
                     ),
                     build_avatar_btn(page, on_profile),
@@ -90,8 +118,8 @@ def build_role_shell(
                             header,
                             ft.Container(
                                 expand=True,
-                                padding=ft.padding.only(left=10, right=10, top=8, bottom=96),
-                                content=glass_container(main_content, padding=14, radius=20),
+                                padding=ft.padding.only(left=10, right=10, top=10, bottom=96),
+                                content=glass_container(main_content, padding=16, radius=26),
                             ),
                         ],
                     ),
@@ -102,8 +130,8 @@ def build_role_shell(
 
     sidebar_controls = [
         ft.Text(role_title, size=22, weight=ft.FontWeight.W_700),
-        ft.Text(role_subtitle, size=12, color=ft.Colors.WHITE70),
-        ft.Divider(color=ft.Colors.WHITE24),
+        ft.Text(role_subtitle, size=12, color="#D2DEE6"),
+        ft.Divider(color=ft.Colors.with_opacity(0.10, "#F4F7FA")),
     ]
     for key, label, icon_name in navigation_items:
         icon = getattr(ft.Icons, icon_name, ft.Icons.CIRCLE)
@@ -113,7 +141,7 @@ def build_role_shell(
                 icon=icon,
                 style=ft.ButtonStyle(
                     color=ft.Colors.WHITE,
-                    bgcolor=ft.Colors.with_opacity(0.22, PRIMARY) if selected_key == key else ft.Colors.TRANSPARENT,
+                    bgcolor=ft.Colors.with_opacity(0.24, PRIMARY) if selected_key == key else ft.Colors.TRANSPARENT,
                     shape=ft.RoundedRectangleBorder(radius=12),
                 ),
                 on_click=lambda e, nav_key=key: on_select(nav_key),
@@ -123,8 +151,8 @@ def build_role_shell(
 
     top_bar = ft.Container(
         padding=ft.padding.only(left=18, right=18, top=10, bottom=10),
-        bgcolor=ft.Colors.with_opacity(0.18, "#0F1A20"),
-        border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE))),
+        bgcolor=ft.Colors.with_opacity(0.62, "#182833"),
+        border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.10, "#F4F7FA"))),
         content=ft.Row(
             alignment=ft.MainAxisAlignment.END,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -147,13 +175,13 @@ def build_role_shell(
                             content=glass_container(
                                 ft.Column(expand=True, spacing=10, controls=sidebar_controls),
                                 padding=20,
-                                radius=22,
+                                radius=26,
                             ),
                         ),
                         ft.Container(
                             expand=True,
                             padding=ft.padding.only(top=14, right=18, bottom=18),
-                            content=glass_container(main_content, padding=20, radius=22),
+                            content=glass_container(main_content, padding=20, radius=26),
                         ),
                     ],
                 ),

@@ -207,11 +207,11 @@ def inline_field(
         can_reveal_password=password,
         keyboard_type=keyboard_type,
         border_radius=12,
-        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
-        border_color=ft.Colors.with_opacity(0.28, ft.Colors.WHITE),
+        bgcolor=ft.Colors.with_opacity(0.14, "#D9E5ED"),
+        border_color=ft.Colors.with_opacity(0.26, "#D9E5ED"),
         focused_border_color=PRIMARY,
         focused_border_width=2,
-        label_style=ft.TextStyle(color=ft.Colors.WHITE70, size=12),
+        label_style=ft.TextStyle(color="#D2DEE6", size=12),
         text_style=ft.TextStyle(color=ft.Colors.WHITE, size=13),
         cursor_color=ft.Colors.WHITE,
         content_padding=ft.padding.symmetric(horizontal=12, vertical=10),
@@ -265,8 +265,8 @@ def open_bottom_sheet(page: ft.Page, title: str, body: ft.Control) -> ft.BottomS
             minimum_padding=ft.padding.only(left=12, right=12, top=8, bottom=12),
             content=ft.Container(
                 border_radius=16,
-                bgcolor=ft.Colors.with_opacity(0.98, "#17232D"),
-                border=ft.border.all(1, ft.Colors.with_opacity(0.18, ft.Colors.WHITE)),
+                bgcolor=ft.Colors.with_opacity(0.96, "#182833"),
+                border=ft.border.all(1, ft.Colors.with_opacity(0.12, "#F4F7FA")),
                 padding=ft.padding.all(12),
                 content=ft.Column(
                     tight=True,
@@ -317,8 +317,8 @@ def collapsible_section(
 
     return ft.Container(
         border_radius=16,
-        bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
-        border=ft.border.all(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE)),
+        bgcolor=ft.Colors.with_opacity(0.14, "#D9E5ED"),
+        border=ft.border.all(1, ft.Colors.with_opacity(0.10, "#F4F7FA")),
         content=ft.Column(
             spacing=0,
             controls=[
@@ -337,7 +337,7 @@ def collapsible_section(
                                     ft.Icon(
                                         getattr(ft.Icons, icon_name, ft.Icons.CIRCLE),
                                         size=16,
-                                        color=ft.Colors.WHITE60,
+                                        color="#D2DEE6",
                                     ),
                                     ft.Column(
                                         tight=True,
@@ -357,7 +357,7 @@ def collapsible_section(
                                 if initially_open
                                 else ft.Icons.KEYBOARD_ARROW_DOWN,
                                 size=18,
-                                color=ft.Colors.WHITE54,
+                                color="#D2DEE6",
                             ),
                         ],
                     ),
@@ -377,12 +377,12 @@ def sticky_action_bar(actions: list[ft.Control]) -> ft.Control:
     return ft.Container(
         padding=ft.padding.symmetric(horizontal=10, vertical=10),
         border_radius=20,
-        bgcolor=ft.Colors.with_opacity(0.26, "#17232D"),
-        border=ft.border.all(1, ft.Colors.with_opacity(0.16, ft.Colors.WHITE)),
+        bgcolor=ft.Colors.with_opacity(0.74, "#182833"),
+        border=ft.border.all(1, ft.Colors.with_opacity(0.12, "#F4F7FA")),
         shadow=ft.BoxShadow(
-            blur_radius=18,
+            blur_radius=20,
             color=ft.Colors.with_opacity(0.24, ft.Colors.BLACK),
-            offset=ft.Offset(0, 8),
+            offset=ft.Offset(0, 10),
         ),
         content=ft.Row(
             spacing=8,
