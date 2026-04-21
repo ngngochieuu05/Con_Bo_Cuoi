@@ -5,7 +5,17 @@ from bll.admin.user_management import (
     get_user_by_username,
     list_users as get_all_users,
 )
-from ui.theme import PRIMARY, button_style, empty_state, glass_container, inline_field, section_title
+from ui.theme import (
+    PRIMARY,
+    button_style,
+    empty_state,
+    glass_container,
+    info_strip,
+    inline_field,
+    metric_card,
+    page_header,
+    section_title,
+)
 
 from .user_management_cards import ROLE_OPTIONS, build_user_card
 from .user_management_filters import build_filter_chips, filter_users
@@ -18,6 +28,8 @@ def build_user_management():
     form_ref = ft.Ref[ft.Container]()
     filter_chips_ref = ft.Ref[ft.Row]()
     msg = ft.Text("", size=12, color=ft.Colors.GREEN_300)
+    summary_ref = ft.Ref[ft.Row]()
+    summary_row = ft.Row(ref=summary_ref, spacing=8, wrap=True, run_spacing=8, controls=[])
 
     f_uname = inline_field("Ten dang nhap", ft.Icons.PERSON)
     f_pwd = inline_field("Mat khau", ft.Icons.LOCK, password=True)
@@ -41,7 +53,19 @@ def build_user_management():
     )
 
     def refresh(keyword: str = "", role_filter: str = "all"):
+        all_users = get_all_users()
+        role_counts = {
+            "expert": sum(1 for user in all_users if user.get("vai_tro") == "expert"),
+            "farmer": sum(1 for user in all_users if user.get("vai_tro") == "farmer"),
+            "admin": sum(1 for user in all_users if user.get("vai_tro") == "admin"),
+        }
         users = filter_users(get_all_users(), keyword, role_filter)
+        summary_ref.current.controls = [
+            ft.Container(expand=1, content=metric_card("Tong tai khoan", str(len(all_users)), ft.Icons.GROUPS, PRIMARY)),
+            ft.Container(expand=1, content=metric_card("Expert", str(role_counts["expert"]), ft.Icons.SUPPORT_AGENT, ft.Colors.CYAN_300)),
+            ft.Container(expand=1, content=metric_card("Farmer", str(role_counts["farmer"]), ft.Icons.AGRICULTURE, ft.Colors.GREEN_300)),
+            ft.Container(expand=1, content=metric_card("Admin", str(role_counts["admin"]), ft.Icons.ADMIN_PANEL_SETTINGS, ft.Colors.AMBER_300)),
+        ]
         list_ref.current.controls = (
             [
                 build_user_card(
@@ -53,6 +77,8 @@ def build_user_management():
             if users
             else [empty_state("Khong tim thay nguoi dung")]
         )
+        if summary_ref.current.page:
+            summary_ref.current.update()
         if list_ref.current.page:
             list_ref.current.update()
 
@@ -127,31 +153,26 @@ def build_user_management():
         spacing=12,
         scroll=ft.ScrollMode.AUTO,
         controls=[
-            ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Column(
-                        tight=True,
-                        spacing=1,
-                        controls=[
-                            ft.Text("Quan ly tai khoan", size=20, weight=ft.FontWeight.W_700),
-                            ft.Text(
-                                "Nhan vao tai khoan de xem chi tiet va chinh sua",
-                                size=11,
-                                color=ft.Colors.WHITE54,
-                            ),
-                        ],
-                    ),
+            page_header(
+                "Accounts",
+                "Tap trung vao tai khoan, vai tro va thao tac chi tiet thay vi bang CRUD day dac.",
+                icon_name="GROUPS",
+                actions=[
                     ft.ElevatedButton(
                         "Them",
                         icon=ft.Icons.PERSON_ADD,
                         style=button_style("primary"),
                         height=36,
                         on_click=lambda e: _toggle_ref(form_ref),
-                    ),
+                    )
                 ],
             ),
+            info_strip(
+                "Mo tung account de sua nhanh, reset mat khau tam hoac xoa. "
+                "Bo loc role va tim kiem chi tac dong tren danh sach hien tai.",
+                tone="neutral",
+            ),
+            summary_row,
             ft.Row(
                 spacing=8,
                 controls=[
@@ -163,9 +184,11 @@ def build_user_management():
                     ),
                 ],
             ),
-            filter_row,
-            msg,
-            add_form,
+            glass_container(
+                padding=12,
+                radius=16,
+                content=ft.Column(spacing=10, controls=[filter_row, msg, add_form]),
+            ),
             user_list,
         ],
     )

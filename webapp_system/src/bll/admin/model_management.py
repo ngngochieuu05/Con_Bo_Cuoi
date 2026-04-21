@@ -11,6 +11,7 @@ from dal.model_repo import (
     get_all_models,
     get_model_by_id,
     get_model_by_type,
+    resolve_model_path,
     update_model as _dal_update_model,
     update_model_status as _dal_update_status,
     update_model_config as _dal_update_config,
@@ -93,6 +94,60 @@ def get_model_status_summary() -> dict:
         }
         for m in models
     }
+
+
+def promote_model(id_model: int) -> tuple[bool, str]:
+    """Promote a model to production for its type and demote current online siblings."""
+    target = get_model_by_id(id_model)
+    if not target:
+        return False, "Khong tim thay model."
+
+    resolved_path = resolve_model_path(target.get("duong_dan_file", ""))
+    if not resolved_path:
+        return False, "Model chua co duong dan file .pt."
+
+    model_type = target.get("loai_mo_hinh", "")
+    siblings = [model for model in get_all_models() if model.get("loai_mo_hinh") == model_type]
+    for sibling in siblings:
+        sibling_id = sibling.get("id_model")
+        if sibling_id == id_model:
+            continue
+        if sibling.get("trang_thai") == "online":
+            _dal_update_model(
+                sibling_id,
+                {
+                    "trang_thai": "offline",
+                    "updated_at": datetime.now().isoformat(),
+                },
+            )
+
+    result = _dal_update_model(
+        id_model,
+        {
+            "duong_dan_file": resolved_path,
+            "trang_thai": "online",
+            "updated_at": datetime.now().isoformat(),
+        },
+    )
+    if result:
+        _clear_ai_cache_if_disease(id_model)
+        return True, "Da dua model len production."
+    return False, "Khong the cap nhat model."
+
+
+def set_model_testing(id_model: int) -> tuple[bool, str]:
+    """Mark a model as testing without promoting it to production."""
+    result = _dal_update_model(
+        id_model,
+        {
+            "trang_thai": "testing",
+            "updated_at": datetime.now().isoformat(),
+        },
+    )
+    if result:
+        _clear_ai_cache_if_disease(id_model)
+        return True, "Da chuyen model sang testing."
+    return False, "Khong the cap nhat model."
 
 
 # ── Thin wrappers với chữ ký khớp DAL — dùng từ UI ──────────────────────────
