@@ -1,6 +1,10 @@
 ﻿import flet as ft
 from ui.theme import build_auth_shell, button_style, auth_text_field, auth_dropdown
-from bll.services.auth_service import register as bll_register
+from bll.services.auth_service import (
+    register as bll_register,
+    get_user_by_username,
+    set_session_from_user,
+)
 
 
 def RegisterScreen(page: ft.Page = None, on_register_success=None, on_back_to_login=None):
@@ -48,8 +52,7 @@ def RegisterScreen(page: ft.Page = None, on_register_success=None, on_back_to_lo
             btn.update()
             return
         if page:
-            page.client_storage.set("user_role", role)
-            page.client_storage.set("ho_ten", hoten)
+            set_session_from_user(page, get_user_by_username(uname))
         if on_register_success:
             on_register_success(role)
 

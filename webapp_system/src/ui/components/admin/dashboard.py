@@ -1,114 +1,169 @@
 import flet as ft
-from ui.theme import (
-    PRIMARY, SECONDARY, WARNING, DANGER,
-    data_table, metric_card, status_badge, glass_container, fmt_dt, section_title,
-    empty_state,
-)
-from bll.admin.dashboard_service import (
-    get_dashboard_stats, get_recent_alerts, get_all_cameras_info,
-)
 
+from bll.admin.dashboard_service import get_all_cameras_info, get_dashboard_stats, get_recent_alerts
+from ui.theme import DANGER, PRIMARY, SECONDARY, WARNING, glass_container, page_header, status_badge
 
 _CAM_STATUS = {
-    "online":  ("Online",   "primary"),
-    "warning": ("Cần xem",  "warning"),
-    "offline": ("Cảnh báo", "danger"),
+    "online": ("On", "primary"),
+    "warning": ("Can xem", "warning"),
+    "offline": ("Offline", "danger"),
 }
-
 _ALERT_LABEL = {
-    "cow_fight":  "Va chạm",
-    "cow_lie":    "Nằm lâu",
-    "cow_sick":   "Sức khỏe",
-    "heat_high":  "Nhiệt cao",
+    "cow_fight": "Va cham",
+    "cow_lie": "Nam lau",
+    "cow_sick": "Suc khoe",
+    "heat_high": "Nhiet cao",
+}
+_ALERT_STATUS = {
+    "CHUA_XU_LY": ("Mo", "danger"),
+    "DA_XU_LY": ("Xong", "primary"),
+    "QUA_HAN": ("Qua han", "warning"),
 }
 
-_ALERT_STATUS = {
-    "CHUA_XU_LY": ("Chưa xử lý", "danger"),
-    "DA_XU_LY":   ("Đã xử lý",   "primary"),
-    "QUA_HAN":    ("Quá hạn",    "warning"),
-}
+
+def _metric_tile(title: str, value: str, icon, accent: str) -> ft.Control:
+    return ft.Container(
+        expand=1,
+        padding=14,
+        border_radius=18,
+        bgcolor=ft.Colors.with_opacity(0.20, accent),
+        border=ft.border.all(1, ft.Colors.with_opacity(0.30, accent)),
+        content=ft.Column(
+            tight=True,
+            spacing=8,
+            controls=[
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Text(title, size=11, color=ft.Colors.WHITE70),
+                        ft.Icon(icon, size=18, color=accent),
+                    ],
+                ),
+                ft.Text(value, size=26, weight=ft.FontWeight.W_700),
+            ],
+        ),
+    )
+
+
+def _snapshot_card(title: str, rows: list[ft.Control]) -> ft.Control:
+    return glass_container(
+        padding=14,
+        radius=18,
+        content=ft.Column(
+            spacing=8,
+            tight=True,
+            controls=[ft.Text(title, size=14, weight=ft.FontWeight.W_700), *rows],
+        ),
+    )
+
+
+def _shortcut_chip(label: str, icon, accent: str) -> ft.Control:
+    return ft.Container(
+        expand=1,
+        padding=ft.padding.symmetric(horizontal=10, vertical=10),
+        border_radius=14,
+        bgcolor=ft.Colors.with_opacity(0.14, accent),
+        border=ft.border.all(1, ft.Colors.with_opacity(0.20, accent)),
+        content=ft.Row(
+            spacing=6,
+            controls=[
+                ft.Icon(icon, size=16, color=accent),
+                ft.Text(label, size=11, weight=ft.FontWeight.W_700),
+            ],
+        ),
+    )
+
+
+def _alert_row(alert: dict) -> ft.Control:
+    label, kind = _ALERT_STATUS.get(alert.get("trang_thai"), ("Mo", "warning"))
+    return ft.Container(
+        padding=ft.padding.symmetric(vertical=8),
+        border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.08, ft.Colors.WHITE))),
+        content=ft.Row(
+            spacing=8,
+            controls=[
+                ft.Icon(ft.Icons.WARNING_AMBER, size=16, color=DANGER),
+                ft.Column(
+                    expand=True,
+                    tight=True,
+                    spacing=2,
+                    controls=[
+                        ft.Text(_ALERT_LABEL.get(alert.get("loai_canh_bao"), "Canh bao"), size=12, weight=ft.FontWeight.W_700),
+                        ft.Text(alert.get("created_at", "")[:16].replace("T", " "), size=10, color=ft.Colors.WHITE54),
+                    ],
+                ),
+                status_badge(label, kind),
+            ],
+        ),
+    )
+
+
+def _camera_row(camera: dict) -> ft.Control:
+    label, kind = _CAM_STATUS.get(camera.get("trang_thai"), ("Mo", "warning"))
+    return ft.Container(
+        padding=ft.padding.symmetric(vertical=8),
+        border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.08, ft.Colors.WHITE))),
+        content=ft.Row(
+            spacing=8,
+            controls=[
+                ft.Icon(ft.Icons.VIDEOCAM, size=16, color=PRIMARY),
+                ft.Column(
+                    expand=True,
+                    tight=True,
+                    spacing=2,
+                    controls=[
+                        ft.Text(str(camera.get("id_camera", "—")), size=12, weight=ft.FontWeight.W_700),
+                        ft.Text(camera.get("khu_vuc_chuong", "—"), size=10, color=ft.Colors.WHITE54),
+                    ],
+                ),
+                status_badge(label, kind),
+            ],
+        ),
+    )
 
 
 def build_admin_dashboard():
-    # ── metrics ───────────────────────────────────────────────────────────
-    stats         = get_dashboard_stats()
-    total_users   = stats["users"]
-    online_models = stats["models_online"]
-    open_alerts   = stats["alerts_open"]
-
-    metric_row = ft.Row(
-        spacing=8,
-        controls=[
-            ft.Container(expand=1, content=metric_card("Tài khoản", str(total_users), ft.Icons.GROUPS, SECONDARY)),
-            ft.Container(expand=1, content=metric_card("Mô hình", str(online_models), ft.Icons.SMART_TOY, PRIMARY)),
-            ft.Container(expand=1, content=metric_card("Cảnh báo", str(open_alerts), ft.Icons.WARNING_AMBER, WARNING)),
-        ],
-    )
-
-    # ── camera table ──────────────────────────────────────────────────────
+    stats = get_dashboard_stats()
+    alerts = sorted(get_recent_alerts(), key=lambda item: item.get("created_at", ""), reverse=True)
     cameras = get_all_cameras_info()
-    cam_rows = []
-    for cam in cameras:
-        st = cam.get("trang_thai", "offline")
-        label, kind = _CAM_STATUS.get(st, ("—", "warning"))
-        cam_rows.append([
-            ft.Text(cam.get("id_camera", "—"), size=12, weight=ft.FontWeight.W_600),
-            ft.Text(cam.get("khu_vuc_chuong", "—"), size=12),
-            status_badge(label, kind),
-            ft.Text(fmt_dt(cam.get("updated_at", "")), size=11, color=ft.Colors.WHITE60),
-        ])
-
-    cam_section = ft.Column(spacing=8, controls=[
-        section_title("VIDEOCAM", "Trạng thái camera"),
-        data_table(
-            ["Camera", "Khu vực", "Trạng thái", "Cập nhật"],
-            cam_rows,
-            col_flex=[2, 2, 2, 3],
-        ) if cam_rows else empty_state("Chưa có camera nào"),
-    ])
-
-    # ── recent alerts ─────────────────────────────────────────────────────
-    alerts = sorted(get_recent_alerts(), key=lambda a: a.get("created_at", ""), reverse=True)[:5]
-    alert_rows = []
-    for a in alerts:
-        loai = _ALERT_LABEL.get(a.get("loai_canh_bao", ""), a.get("loai_canh_bao", "—"))
-        st_label, st_kind = _ALERT_STATUS.get(a.get("trang_thai", ""), ("—", "warning"))
-        alert_rows.append([
-            ft.Text(f"#{a.get('id_canh_bao','')}", size=12, color=ft.Colors.WHITE54),
-            ft.Text(loai, size=12),
-            status_badge(st_label, st_kind),
-            ft.Text(fmt_dt(a.get("created_at", "")), size=11, color=ft.Colors.WHITE60),
-        ])
-
-    alert_section = ft.Column(spacing=8, controls=[
-        section_title("NOTIFICATIONS_ACTIVE", "Cảnh báo gần đây"),
-        data_table(
-            ["ID", "Loại", "Trạng thái", "Thời gian"],
-            alert_rows,
-            col_flex=[1, 2, 2, 3],
-        ) if alert_rows else empty_state("Không có cảnh báo"),
-    ])
+    attention_cameras = [camera for camera in cameras if camera.get("trang_thai") != "online"][:5]
 
     return ft.Column(
         expand=True,
-        spacing=16,
-        scroll=ft.ScrollMode.AUTO,
+        spacing=14,
         controls=[
+            page_header(
+                "Tong quan admin",
+                "Snapshot triage cho mobile. Khong dua bang van hanh day dac len dashboard.",
+                icon_name="DASHBOARD",
+            ),
             ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=10,
                 controls=[
-                    ft.Column(tight=True, spacing=1, controls=[
-                        ft.Text("Bảng điều khiển", size=22, weight=ft.FontWeight.W_700),
-                        ft.Text("Tổng quan hệ thống", size=11, color=ft.Colors.WHITE54),
-                    ]),
-                    ft.Icon(ft.Icons.DASHBOARD, color=ft.Colors.WHITE24, size=28),
+                    _metric_tile("Tai khoan", str(stats["users"]), ft.Icons.GROUPS, SECONDARY),
+                    _metric_tile("Model on", str(stats["models_online"]), ft.Icons.SMART_TOY, PRIMARY),
+                    _metric_tile("Alert mo", str(stats["alerts_open"]), ft.Icons.WARNING_AMBER, WARNING),
                 ],
             ),
-            metric_row,
-            glass_container(padding=14, radius=16, content=cam_section),
-            glass_container(padding=14, radius=16, content=alert_section),
+            ft.Row(
+                spacing=10,
+                controls=[
+                    _snapshot_card("Alert gan day", [_alert_row(alert) for alert in alerts[:5]] or [ft.Text("Khong co alert.", size=11, color=ft.Colors.WHITE54)]),
+                    _snapshot_card("Camera can xem", [_camera_row(camera) for camera in attention_cameras] or [ft.Text("Tat ca camera dang on.", size=11, color=ft.Colors.WHITE54)]),
+                ],
+            ),
+            _snapshot_card(
+                "Tac vu nhanh",
+                [
+                    ft.Row(
+                        spacing=10,
+                        controls=[
+                            _shortcut_chip("Tai khoan", ft.Icons.GROUPS, SECONDARY),
+                            _shortcut_chip("Model", ft.Icons.SMART_TOY, PRIMARY),
+                            _shortcut_chip("Train", ft.Icons.MODEL_TRAINING, WARNING),
+                        ],
+                    )
+                ],
+            ),
         ],
     )
-
-

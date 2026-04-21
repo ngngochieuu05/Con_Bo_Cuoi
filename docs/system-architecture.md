@@ -81,9 +81,17 @@ Mobile (width ≤ 900px):
 └─────────────────────────┘
 ```
 
-### Design System (theme.py)
+### Design System (theme.py facade)
 
 Single source of truth for all visual design:
+
+`ui/theme.py` now acts as a compatibility facade. The concrete split lives in:
+- `ui/theme_tokens.py`
+- `ui/theme_primitives.py`
+- `ui/theme_shells.py`
+- `ui/theme_auth.py`
+- `ui/theme_tables.py`
+- `ui/theme_nav.py`
 
 ```
 theme.py
@@ -151,6 +159,12 @@ ui/components/
         └── _camera_capture.py → subprocess for snapshots
 ```
 
+Current reconciliation after the April 19 refactor:
+- `ui/theme.py` is now a stable facade over `theme_tokens.py`, `theme_primitives.py`, `theme_shells.py`, `theme_auth.py`, `theme_tables.py`, and `theme_nav.py`
+- `admin/train_management.py` is now an orchestrator over `train_management_form.py`, `train_management_runtime.py`, and `train_management_actions.py`
+- `admin/user_management.py` is now an orchestrator over `user_management_cards.py`, `user_management_filters.py`, and `user_management_model_controls.py`
+- `user/framer/health_consulting.py` is now an orchestrator over the split `health_consulting_*` modules
+
 ### State Management Pattern
 
 All UI state is **functional + closure-based**:
@@ -182,20 +196,20 @@ def my_screen(page: ft.Page) -> ft.Control:
 
 ### Session Management
 
-Session is stored in **page.client_storage**:
+Session source of truth is **page.data**, mirrored into **page.client_storage** for legacy UI compatibility:
 
 ```python
 # After login
-page.client_storage.set("user_role", "admin")
-page.client_storage.set("user_id", "1")
-page.client_storage.set("ho_ten", "Quản trị viên")
+page.data["user_role"] = "admin"
+page.data["user_id"] = "1"
+page.data["ho_ten"] = "Quản trị viên"
 
 # Read session
-role = page.client_storage.get("user_role")
+role = page.data.get("user_role")
 
 # Logout: clear all
 for key in ("user_role", "user_id", "ho_ten"):
-    page.client_storage.remove(key)
+    page.data.pop(key, None)
 ```
 
 **Limitation**: Non-persistent (clears on app restart). For production web, upgrade to signed cookies or JWT.
@@ -223,13 +237,13 @@ Two main services orchestrate business logic:
              │
     ┌────────▼──────────────────────┐
     │ DAL: authenticate()           │
-    │ (SHA256 hash check)           │
+    │ (PBKDF2 check + legacy SHA256)│
     └────────┬─────────────────────┘
              │
              ├─ User found & hash match?
              │
              ├─YES─┐
-             │     ├─ Set page.client_storage
+             │     ├─ Set page.data (+ mirror client_storage)
              │     ├─ Return role (admin|expert|farmer)
              │
              └─NO──┐
@@ -608,7 +622,7 @@ Flet is **immediate-mode**, not declarative (unlike React):
 - Redux would add overhead (selectors, reducers, middleware)
 - Closures + dicts are simpler and sufficient
 
-### 4. Why Session in page.client_storage?
+### 4. Why Session in page.data?
 
 Advantage:
 - No server-side session storage needed for desktop
@@ -690,9 +704,9 @@ Example: Fetch dashboard
 
 ### Current Limitations (Should Fix)
 
-1. **Passwords:** SHA256 without salt (weak)
-   - Recommendation: Use bcrypt library
-2. **Session:** page.client_storage (non-persistent, no encryption)
+1. **Passwords:** PBKDF2-HMAC-SHA256 with random salt; legacy SHA256 remains only for login-time migration
+   - Recommendation: Keep current PBKDF2 baseline or move to Argon2/bcrypt only if migration budget exists
+2. **Session:** page.data is in-process state; page.client_storage is compatibility mirror only
    - Recommendation: Signed JWT in HTTP-only cookies (web only)
 3. **Role-Based Access:** UI-only validation
    - Recommendation: Add ACL checks in DAL layer
@@ -726,7 +740,7 @@ def test_auth_service_login(mock_dai_khoan_repo):
     page = MockPage()
     role = auth_service.login("admin", "admin123", page)
     assert role == "admin"
-    assert page.client_storage["user_role"] == "admin"
+    assert page.data["user_role"] == "admin"
 
 # Test UI independently (mock service)
 def test_login_screen(mock_auth_service):

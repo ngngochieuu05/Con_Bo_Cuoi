@@ -31,7 +31,7 @@
       "phien_ban": "v1.0.0",
       "trang_thai": "offline",
       "mo_ta": "Phat hien dau hieu benh qua hinh anh: ghe, sung, ton thuong da",
-      "duong_dan_file": "D:\\DACS\\Con_Bo_Cuoi_App\\models\\train_yolov8s-seg_500ep\\weights\\best.pt",
+      "duong_dan_file": "models/train_yolov8s-seg_500ep-v2-16bath-20260416T071858Z-3-001/train_yolov8s-seg_500ep-v2-16bath/weights/best.pt",
       "conf": 0.05,
       "iou": 0.5,
       "updated_at": "2026-04-16T12:00:49.736877"

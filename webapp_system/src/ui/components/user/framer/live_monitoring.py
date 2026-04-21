@@ -14,6 +14,11 @@ from bll.services.monitor_service import (
 from ui.theme import PRIMARY, DANGER, glass_container, status_badge
 
 
+EMPTY_IMAGE_BASE64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg=="
+)
+
+
 class LiveMonitoringController:
     def __init__(self):
         self.config = load_config()
@@ -27,14 +32,21 @@ class LiveMonitoringController:
         self.last_update = ft.Text("", size=11, color=ft.Colors.WHITE70)
 
         self.stream_image = ft.Image(
-            src="",
+            src_base64=EMPTY_IMAGE_BASE64,
             fit="contain",
             border_radius=12,
-            error_content=ft.Column(
+        )
+        self.stream_placeholder = ft.Container(
+            expand=True,
+            border_radius=12,
+            bgcolor=ft.Colors.with_opacity(0.16, ft.Colors.BLACK),
+            alignment=ft.alignment.center,
+            content=ft.Column(
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                tight=True,
                 controls=[
                     ft.Icon(ft.Icons.VIDEOCAM_OFF, size=40, color=ft.Colors.WHITE60),
-                    ft.Text("Không có tín hiệu camera", size=12, color=ft.Colors.WHITE70),
+                    ft.Text("Nhấn 'Kết nối máy chủ' để bắt đầu", size=12, color=ft.Colors.WHITE70),
                 ],
             ),
         )
@@ -79,7 +91,10 @@ class LiveMonitoringController:
                             border_radius=12,
                             bgcolor=ft.Colors.with_opacity(0.2, ft.Colors.BLACK),
                             alignment=ft.alignment.center,
-                            content=self.stream_image,
+                            content=ft.Stack(
+                                expand=True,
+                                controls=[self.stream_image, self.stream_placeholder],
+                            ),
                         ),
                         ft.Row(controls=[self.connect_btn, self.snapshot_btn]),
                     ],
@@ -154,6 +169,12 @@ class LiveMonitoringController:
             self.log_rows.controls.pop()
         self._safe_update(self.log_rows)
 
+    def _reset_stream(self):
+        self.stream_image.src = ""
+        self.stream_image.src_base64 = EMPTY_IMAGE_BASE64
+        self.stream_placeholder.visible = True
+        self._safe_update(self.stream_image, self.stream_placeholder)
+
     def _apply_dashboard_data(self, data: dict, offline: bool = False):
         self.total_cows.value = str(data.get("total_cows", "--"))
         self.active_alerts.value = str(data.get("active_alerts", "--"))
@@ -182,8 +203,9 @@ class LiveMonitoringController:
     def _start_polling(self):
         self._polling = True
         self.stream_image.src = stream_url(self.server_url)
-        self.stream_image.src_base64 = None
-        self._safe_update(self.stream_image)
+        self.stream_image.src_base64 = ""
+        self.stream_placeholder.visible = False
+        self._safe_update(self.stream_image, self.stream_placeholder)
 
         def _poll_loop():
             while self._polling and self.is_connected:
@@ -196,6 +218,7 @@ class LiveMonitoringController:
                     self._set_status(False)
                     self.connect_btn.text = "Thử lại"
                     self.connect_btn.icon = ft.Icons.WIFI
+                    self._reset_stream()
                     self._safe_update(self.connect_btn)
                     self._append_log(time.strftime("%H:%M"), f"Mất kết nối: {str(err)[:60]}", "warning")
                     self._load_offline_cache()
@@ -212,6 +235,7 @@ class LiveMonitoringController:
             self.connect_btn.text = "Kết nối máy chủ"
             self.connect_btn.icon = ft.Icons.WIFI
             self.snapshot_btn.visible = False
+            self._reset_stream()
             self._safe_update(self.connect_btn, self.snapshot_btn)
             self._append_log(time.strftime("%H:%M"), "Đã ngắt kết nối máy chủ", "info")
             return
@@ -238,6 +262,7 @@ class LiveMonitoringController:
                 self.connect_btn.text = "Thử lại"
                 self.connect_btn.icon = ft.Icons.WIFI
                 self.snapshot_btn.visible = False
+                self._reset_stream()
                 self._append_log(time.strftime("%H:%M"), f"Không kết nối được máy chủ: {str(err)[:60]}", "warning")
                 self._load_offline_cache()
             finally:
@@ -256,7 +281,8 @@ class LiveMonitoringController:
                 b64_data = fetch_snapshot_base64(self.server_url)
                 self.stream_image.src = ""
                 self.stream_image.src_base64 = b64_data
-                self._safe_update(self.stream_image)
+                self.stream_placeholder.visible = False
+                self._safe_update(self.stream_image, self.stream_placeholder)
                 self._append_log(time.strftime("%H:%M"), "Đã chụp ảnh từ camera", "success")
             except Exception as err:
                 self._append_log(time.strftime("%H:%M"), f"Lỗi chụp ảnh: {str(err)[:60]}", "warning")

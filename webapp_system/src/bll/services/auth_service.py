@@ -16,6 +16,86 @@ _LOCKOUT_SECS = 900   # 15-minute lockout
 _login_attempts: dict[str, list[float]] = {}
 
 
+def _storage_get(page: ft.Page | None, key: str, default=None):
+    if page is None:
+        return default
+    try:
+        data = page.data
+        if isinstance(data, dict) and key in data:
+            return data.get(key, default)
+    except Exception:
+        pass
+    try:
+        storage = getattr(page, "client_storage", None)
+        if storage is not None:
+            value = storage.get(key)
+            if value is not None:
+                return value
+    except Exception:
+        pass
+    return default
+
+
+def _storage_set(page: ft.Page | None, key: str, value) -> None:
+    if page is None:
+        return
+    try:
+        if not isinstance(page.data, dict):
+            page.data = {}
+    except Exception:
+        page.data = {}
+    page.data[key] = value
+    try:
+        storage = getattr(page, "client_storage", None)
+        if storage is not None:
+            storage.set(key, value)
+    except Exception:
+        pass
+
+
+def _storage_remove(page: ft.Page | None, key: str) -> None:
+    if page is None:
+        return
+    try:
+        if isinstance(page.data, dict):
+            page.data.pop(key, None)
+    except Exception:
+        pass
+    try:
+        storage = getattr(page, "client_storage", None)
+        if storage is not None:
+            storage.remove(key)
+    except Exception:
+        pass
+
+
+def set_session_from_user(page: ft.Page | None, user: dict | None) -> None:
+    if not page or not user:
+        return
+    _storage_set(page, "user_role", user.get("vai_tro", "farmer"))
+    _storage_set(page, "user_id", str(user.get("id_user", "")))
+    _storage_set(page, "ho_ten", user.get("ho_ten", ""))
+    avatar_b64 = user.get("anh_dai_dien")
+    if avatar_b64:
+        _storage_set(page, "anh_dai_dien", avatar_b64)
+
+
+def sync_profile_session(
+    page: ft.Page | None,
+    *,
+    ho_ten: str | None = None,
+    anh_dai_dien: str | None = None,
+) -> None:
+    if ho_ten is not None:
+        _storage_set(page, "ho_ten", ho_ten)
+    if anh_dai_dien is not None:
+        _storage_set(page, "anh_dai_dien", anh_dai_dien)
+
+
+def get_session_value(page: ft.Page | None, key: str, default=None):
+    return _storage_get(page, key, default)
+
+
 def _is_locked_out(uname: str) -> bool:
     """Return True if account should be temporarily locked."""
     now = time.monotonic()
@@ -42,9 +122,7 @@ def login(ten_dang_nhap: str, mat_khau: str, page: ft.Page):
     if user:
         _clear_attempts(uname)
         role = user.get("vai_tro", "farmer")
-        page.data["user_role"] = role
-        page.data["user_id"] = str(user.get("id_user", ""))
-        page.data["ho_ten"] = user.get("ho_ten", "")
+        set_session_from_user(page, user)
         return role
     _record_failure(uname)
     return None
@@ -58,10 +136,8 @@ def authenticate(ten_dang_nhap: str, mat_khau: str, page=None) -> dict | None:
 def perform_logout(page: ft.Page, on_logout_success):
     """Xóa token và đăng xuất."""
     for key in ("user_role", "user_id", "ho_ten"):
-        try:
-            page.data.pop(key, None)
-        except Exception:
-            pass
+        _storage_remove(page, key)
+    _storage_remove(page, "anh_dai_dien")
 
     if on_logout_success:
         on_logout_success()
@@ -69,9 +145,7 @@ def perform_logout(page: ft.Page, on_logout_success):
 
 def check_logged_in_role(page: ft.Page):
     """Kiểm tra xem người dùng đã đăng nhập chưa."""
-    if "user_role" in (page.data or {}):
-        return page.data.get("user_role")
-    return None
+    return get_session_value(page, "user_role")
 
 
 # ── User / Profile ────────────────────────────────────────────────────────────
@@ -108,6 +182,10 @@ def register(ten_dang_nhap: str, mat_khau: str, ho_ten: str,
 def get_user_by_id(id_user: int) -> dict | None:
     """Lấy thông tin người dùng theo id."""
     return _dal_get_by_id(id_user)
+
+
+def get_user_by_username(ten_dang_nhap: str) -> dict | None:
+    return _dal_get_by_uname(ten_dang_nhap)
 
 
 def update_profile(id_user: int, updates: dict) -> tuple[bool, str]:

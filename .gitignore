@@ -12,7 +12,8 @@
 
 # testing
 /coverage
-
+tool_create_dataset.py
+webapp_system/src/dal/db/app_config.qa-backup.json
 # next.js
 /.next/
 /out/

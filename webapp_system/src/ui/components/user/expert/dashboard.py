@@ -1,66 +1,124 @@
 import flet as ft
-from ui.theme import glass_container, metric_card, status_badge, WARNING, PRIMARY
 
-_MOCK_CASES = [
-    {"id": "Case-2026-001", "status": "Mới", "kind": "warning",
-     "type": "Bất thường hành vi", "time": "09:40", "desc": "Bò #12 hung hăng bất thường"},
-    {"id": "Case-2026-002", "status": "Đang xử lý", "kind": "secondary",
-     "type": "Dự báo sức khỏe", "time": "09:31", "desc": "Bò #07 sụt cân"},
-    {"id": "Case-2026-003", "status": "Đã đóng", "kind": "primary",
-     "type": "Kết quả tư vấn", "time": "09:10", "desc": "Bò #03 hồi phục"},
-    {"id": "Case-2026-004", "status": "Mới", "kind": "warning",
-     "type": "Cảnh báo bệnh", "time": "08:55", "desc": "Bò #18 triệu chứng lở mồm"},
-    {"id": "Case-2026-005", "status": "Đang xử lý", "kind": "secondary",
-     "type": "Tư vấn dinh dưỡng", "time": "08:30", "desc": "Bò #05 ăn kém"},
-    {"id": "Case-2026-006", "status": "Đã đóng", "kind": "primary",
-     "type": "Kiểm tra định kỳ", "time": "08:00", "desc": "Bò #09 ổn định"},
-]
-_FILTER_OPTS = [
-    ("all", "Tất cả"), ("Mới", "Mới"),
-    ("Đang xử lý", "Đang xử lý"), ("Đã đóng", "Đã đóng"),
-]
-_TYPE_ICONS = {
-    "Bất thường hành vi": ft.Icons.WARNING_AMBER,
-    "Dự báo sức khỏe":    ft.Icons.MONITOR_HEART,
-    "Kết quả tư vấn":     ft.Icons.CHAT,
-    "Cảnh báo bệnh":      ft.Icons.BUG_REPORT,
-    "Tư vấn dinh dưỡng":  ft.Icons.GRASS,
-    "Kiểm tra định kỳ":   ft.Icons.FACT_CHECK,
+from bll.services import chat_service
+from bll.services.auth_service import get_session_value
+from dal.dataset_repo import get_images_pending
+from ui.theme import (
+    DANGER,
+    PRIMARY,
+    SECONDARY,
+    SUCCESS,
+    WARNING,
+    glass_container,
+    info_strip,
+    page_header,
+    severity_badge,
+    status_badge,
+)
+
+_STATUS_META = {
+    "new": ("Moi", "warning"),
+    "claimed": ("Mo", "secondary"),
+    "under_review": ("Xu ly", "secondary"),
+    "waiting_farmer": ("Cho", "neutral"),
+    "escalated": ("Khan", "danger"),
+    "closed": ("Xong", "success"),
 }
 
 
-def _case_card(case: dict) -> ft.Control:
-    icon = _TYPE_ICONS.get(case["type"], ft.Icons.ARTICLE)
+def _metric_tile(title: str, value: str, icon, accent: str, note: str) -> ft.Control:
     return ft.Container(
-        margin=ft.margin.only(bottom=8),
-        padding=ft.padding.symmetric(horizontal=14, vertical=10),
-        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
-        border_radius=14,
-        border=ft.border.all(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE)),
+        expand=1,
+        padding=14,
+        border_radius=18,
+        bgcolor=ft.Colors.with_opacity(0.22, accent),
+        border=ft.border.all(1, ft.Colors.with_opacity(0.32, accent)),
+        content=ft.Column(
+            tight=True,
+            spacing=8,
+            controls=[
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Text(title, size=11, color=ft.Colors.WHITE70),
+                        ft.Icon(icon, size=18, color=accent),
+                    ],
+                ),
+                ft.Text(value, size=26, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                ft.Text(note, size=10, color=ft.Colors.WHITE54, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+            ],
+        ),
+    )
+
+
+def _quick_action(title: str, icon, accent: str, on_click) -> ft.Control:
+    return ft.Container(
+        expand=1,
         ink=True,
-        content=ft.Row(
-            spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        on_click=lambda e: on_click(),
+        padding=14,
+        border_radius=18,
+        bgcolor=ft.Colors.with_opacity(0.14, ft.Colors.WHITE),
+        border=ft.border.all(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE)),
+        content=ft.Column(
+            spacing=8,
+            tight=True,
             controls=[
                 ft.Container(
-                    width=40, height=40, border_radius=12,
-                    bgcolor=ft.Colors.with_opacity(0.14, ft.Colors.TEAL_300),
+                    width=34,
+                    height=34,
+                    border_radius=12,
+                    bgcolor=ft.Colors.with_opacity(0.18, accent),
                     alignment=ft.alignment.center,
-                    content=ft.Icon(icon, size=20, color=ft.Colors.TEAL_300),
+                    content=ft.Icon(icon, color=accent, size=18),
                 ),
-                ft.Column(
-                    expand=True, spacing=3, tight=True,
+                ft.Text(title, size=12, weight=ft.FontWeight.W_700, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+            ],
+        ),
+    )
+
+
+def _case_card(case: dict, on_open) -> ft.Control:
+    status_label, status_kind = _STATUS_META.get(case.get("status"), ("Mo", "secondary"))
+    return ft.Container(
+        margin=ft.margin.only(bottom=8),
+        padding=14,
+        border_radius=18,
+        bgcolor=ft.Colors.with_opacity(0.16, ft.Colors.WHITE),
+        border=ft.border.all(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE)),
+        ink=True,
+        on_click=lambda e: on_open(case["id"]),
+        content=ft.Column(
+            spacing=6,
+            tight=True,
+            controls=[
+                ft.Row(
+                    spacing=6,
                     controls=[
-                        ft.Row(controls=[
-                            ft.Text(case["id"], size=12, weight=ft.FontWeight.W_700, expand=True),
-                            status_badge(case["status"], case["kind"]),
-                        ]),
-                        ft.Text(case["type"], size=11, color=ft.Colors.WHITE70),
-                        ft.Row(controls=[
-                            ft.Text(case["desc"], size=11, color=ft.Colors.WHITE54,
-                                    expand=True, max_lines=1,
-                                    overflow=ft.TextOverflow.ELLIPSIS),
-                            ft.Text(case["time"], size=10, color=ft.Colors.WHITE38),
-                        ]),
+                        ft.Text(f"Case-{case['id']:04d}", size=13, weight=ft.FontWeight.W_700, expand=True),
+                        severity_badge(case.get("severity", "medium")),
+                        status_badge(status_label, status_kind),
+                    ],
+                ),
+                ft.Text(
+                    f"{case.get('farm_name', '—')}  •  {case.get('cow_id', '—')}",
+                    size=11,
+                    color=ft.Colors.WHITE70,
+                    max_lines=1,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                ),
+                ft.Text(
+                    case.get("summary", "Chua co tom tat."),
+                    size=11,
+                    color=ft.Colors.WHITE54,
+                    max_lines=2,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                ),
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Text(case.get("case_type", "Tu van"), size=10, color=ft.Colors.WHITE38),
+                        ft.Text(case.get("sla_due_at", "")[11:16] or "—", size=10, color=ft.Colors.AMBER_200),
                     ],
                 ),
             ],
@@ -68,95 +126,96 @@ def _case_card(case: dict) -> ft.Control:
     )
 
 
-def _sla_metric_card(value: float) -> ft.Control:
-    color = (ft.Colors.GREEN_400 if value >= 90
-             else ft.Colors.AMBER_400 if value >= 75
-             else ft.Colors.RED_400)
-    return glass_container(
-        padding=16, radius=20,
-        content=ft.Column(tight=True, spacing=8, controls=[
-            ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                controls=[
-                    ft.Text("SLA đúng hạn", size=13, color=ft.Colors.WHITE70),
-                    ft.Icon(ft.Icons.AV_TIMER, color=color, size=18),
-                ],
-            ),
-            ft.Text(f"{value:.0f}%", size=24, weight=ft.FontWeight.W_700, color=color),
-            ft.ProgressBar(value=value / 100, color=color, bgcolor=ft.Colors.WHITE12),
-        ]),
-    )
+def build_expert_dashboard(page: ft.Page = None, on_navigate=None):
+    expert_id = int(get_session_value(page, "user_id", 0) or 0)
+    chat_service.ensure_demo_data(expert_id)
+    cases = chat_service.list_conversations_for_expert(expert_id)
+    urgent_cases = [c for c in cases if c.get("severity") in ("critical", "high") or c.get("status") == "escalated"]
+    waiting_cases = [c for c in cases if c.get("status") == "waiting_farmer"]
+    review_count = len(get_images_pending())
+    closed_cases = [c for c in cases if c.get("status") == "closed"]
+    open_cases = [c for c in cases if c.get("status") != "closed"]
+    snapshot_cases = (urgent_cases or waiting_cases or open_cases)[:3]
 
+    def _navigate(target: str):
+        if on_navigate:
+            on_navigate(target)
 
-def build_expert_dashboard(page: ft.Page = None):
-    selected = {"filter": "all"}
-    chips_ref = ft.Ref[ft.Row]()
-    list_ref  = ft.Ref[ft.ListView]()
-
-    def _update():
-        if page:
-            try:
-                page.update()
-            except Exception:
-                pass
-
-    def _chip(key, label):
-        is_sel = selected["filter"] == key
-        return ft.Container(
-            on_click=lambda e, k=key: _set_filter(k),
-            ink=True,
-            padding=ft.padding.symmetric(horizontal=12, vertical=6),
-            border_radius=20,
-            bgcolor=(ft.Colors.with_opacity(0.30, PRIMARY) if is_sel
-                     else ft.Colors.with_opacity(0.10, ft.Colors.WHITE)),
-            border=ft.border.all(
-                1, ft.Colors.with_opacity(0.45, PRIMARY) if is_sel
-                else ft.Colors.with_opacity(0.20, ft.Colors.WHITE),
-            ),
-            content=ft.Text(
-                label, size=12,
-                weight=ft.FontWeight.W_600 if is_sel else ft.FontWeight.W_400,
-                color=ft.Colors.WHITE if is_sel else ft.Colors.WHITE70,
-            ),
-        )
-
-    def _filtered():
-        f = selected["filter"]
-        return [c for c in _MOCK_CASES if f == "all" or c["status"] == f]
-
-    def _set_filter(key):
-        selected["filter"] = key
-        if chips_ref.current:
-            chips_ref.current.controls = [_chip(k, l) for k, l in _FILTER_OPTS]
-        if list_ref.current:
-            list_ref.current.controls = [_case_card(c) for c in _filtered()]
-        _update()
+    def _open_case(case_id: int):
+        if page and isinstance(page.data, dict):
+            page.data["expert_selected_case_id"] = case_id
+        _navigate("consulting")
 
     return ft.Column(
-        expand=True, spacing=16,
+        expand=True,
+        spacing=14,
         controls=[
-            ft.Text("Bảng điều khiển chuyên gia", size=26, weight=ft.FontWeight.W_700),
+            page_header(
+                "Tong quan chuyen gia",
+                "Snapshot nhanh de mo dung workflow, khong dung dashboard lam queue thu hai.",
+                icon_name="SPACE_DASHBOARD",
+            ),
+            info_strip(
+                "Dashboard chi hien top case can xu ly va lo du lieu dang cho. Muon thao tac sau hon thi vao Tu van hoac Du lieu.",
+                tone="warning",
+            ),
             ft.Row(
-                spacing=12,
+                spacing=10,
                 controls=[
-                    ft.Container(expand=1,
-                                 content=metric_card("Ca đang mở", "21",
-                                                     ft.Icons.MARK_EMAIL_UNREAD, WARNING)),
-                    ft.Container(expand=1,
-                                 content=metric_card("Đánh giá hôm nay", "37",
-                                                     ft.Icons.FACT_CHECK, PRIMARY)),
-                    ft.Container(expand=1, content=_sla_metric_card(96)),
+                    _metric_tile("Ca mo", str(len(open_cases)), ft.Icons.FOLDER_OPEN, PRIMARY, "Hang cho hien tai"),
+                    _metric_tile("Ca khan", str(len(urgent_cases)), ft.Icons.PRIORITY_HIGH, DANGER, "Can xu ly som"),
+                    _metric_tile("Cho data", str(review_count), ft.Icons.FACT_CHECK, WARNING, "Review thu cong"),
                 ],
             ),
             ft.Row(
-                ref=chips_ref, spacing=8, scroll=ft.ScrollMode.AUTO,
-                controls=[_chip(k, l) for k, l in _FILTER_OPTS],
+                spacing=10,
+                controls=[
+                    _metric_tile("Cho farmer", str(len(waiting_cases)), ft.Icons.HOURGLASS_TOP, SECONDARY, "Dang doi phan hoi"),
+                    _metric_tile("Da dong", str(len(closed_cases)), ft.Icons.CHECK_CIRCLE, SUCCESS, "Hoan tat gan day"),
+                    _quick_action("Mo Tu van", ft.Icons.RECORD_VOICE_OVER, PRIMARY, lambda: _navigate("consulting")),
+                ],
             ),
-            ft.Container(
+            glass_container(
+                padding=14,
+                radius=18,
+                content=ft.Column(
+                    spacing=10,
+                    tight=True,
+                    controls=[
+                        ft.Text("Tac vu nhanh", size=14, weight=ft.FontWeight.W_700),
+                        ft.Row(
+                            spacing=10,
+                            controls=[
+                                _quick_action("Case workspace", ft.Icons.RECORD_VOICE_OVER, PRIMARY, lambda: _navigate("consulting")),
+                                _quick_action("Review du lieu", ft.Icons.DATA_OBJECT, WARNING, lambda: _navigate("raw_data")),
+                                _quick_action("Tien ich", ft.Icons.BUILD, SECONDARY, lambda: _navigate("utilities")),
+                            ],
+                        ),
+                    ],
+                ),
+            ),
+            glass_container(
                 expand=True,
-                content=ft.ListView(
-                    ref=list_ref, expand=True, spacing=0,
-                    controls=[_case_card(c) for c in _filtered()],
+                padding=14,
+                radius=18,
+                content=ft.Column(
+                    expand=True,
+                    spacing=10,
+                    tight=True,
+                    controls=[
+                        ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Text("Can xu ly ngay", size=14, weight=ft.FontWeight.W_700),
+                                ft.Text("Top 3", size=10, color=ft.Colors.WHITE54),
+                            ],
+                        ),
+                        *[_case_card(case, _open_case) for case in snapshot_cases],
+                    ]
+                    if snapshot_cases
+                    else [
+                        ft.Text("Chua co case uu tien cao.", size=12, color=ft.Colors.WHITE54),
+                    ],
                 ),
             ),
         ],

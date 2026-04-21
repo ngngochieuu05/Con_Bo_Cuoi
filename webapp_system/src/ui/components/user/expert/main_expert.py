@@ -11,11 +11,8 @@ from ui.theme import build_role_shell
 
 def ExpertMainScreen(page: ft.Page, on_logout=None):
     views = {
-        "dashboard": build_expert_dashboard,
         "raw_data": build_raw_data_review,
-        "consulting": build_consulting_review,
         "utilities": build_expert_utilities,
-        "settings": build_expert_settings,
     }
     navigation_items = [
         ("dashboard", "Tổng quan", "DASHBOARD"),
@@ -38,9 +35,13 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
         elif selected["key"] == "settings":
             content_holder.content = build_expert_settings(on_logout=on_logout)
         elif selected["key"] == "consulting":
-            content_holder.content = build_consulting_review(page=page)
+            content_holder.content = build_consulting_review(page=page, on_navigate=select_view)
+        elif selected["key"] == "dashboard":
+            content_holder.content = build_expert_dashboard(page=page, on_navigate=select_view)
+        elif selected["key"] == "utilities":
+            content_holder.content = build_expert_utilities(page=page)
         else:
-            content_holder.content = views.get(selected["key"], build_expert_dashboard)()
+            content_holder.content = views.get(selected["key"], build_raw_data_review)()
         root.content = build_role_shell(
             role_title="CHUYÊN GIA",
             role_subtitle="Đánh giá và tư vấn chuyên môn",

@@ -24,7 +24,7 @@ Con_Bo_Cuoi/
 │   │       ├── tai_khoan.json
 │   │       ├── camera_chuong.json
 │   │       ├── canh_bao_su_co.json
-│   │       ├── model.json
+│   │       ├── models.json
 │   │       ├── hinh_anh_dataset.json
 │   │       ├── hanh_vi.json
 │   │       ├── lich_su_kiem_duyet.json
@@ -97,7 +97,7 @@ Con_Bo_Cuoi/
 **Purpose**: Handle authentication and session lifecycle.
 
 **Functions**:
-- `login(ten_dang_nhap, mat_khau, page)` → Calls DAL, stores session in page.client_storage, returns role or None
+- `login(ten_dang_nhap, mat_khau, page)` → Calls DAL, stores session in page.data and mirrors to client_storage, returns role or None
 - `perform_logout(page, callback)` → Clears keys (user_role, user_id, ho_ten), fires callback
 - `check_logged_in_role(page)` → Returns stored role or None (used in recovery logic)
 
@@ -156,7 +156,7 @@ Con_Bo_Cuoi/
 **Functions**:
 - `init_seed()` — Populate default test accounts (admin, expert01, farmer01)
 - `get_all_users()`, `get_user_by_id(id)`, `get_user_by_username(ten_dang_nhap)`
-- `authenticate(ten_dang_nhap, mat_khau_raw)` → SHA256 hash check, returns user or None
+- `authenticate(ten_dang_nhap, mat_khau_raw)` → PBKDF2-HMAC-SHA256 check with legacy SHA256 fallback, returns user or None
 - `create_user(ten_dang_nhap, mat_khau_raw, vai_tro, ho_ten)`
 - `update_user(id, updates)` — Filters out mat_khau and id_user (no direct password edit via this function)
 - `change_password(id, new_password_raw)` — Dedicated password setter
@@ -229,7 +229,7 @@ Con_Bo_Cuoi/
 ---
 
 ### ui/theme.py
-**Purpose**: Centralized design system and reusable component factories.
+**Purpose**: Compatibility facade over the split design system modules.
 
 **Color Tokens**:
 - PRIMARY: #4CAF50 (green)
@@ -239,7 +239,14 @@ Con_Bo_Cuoi/
 - TEXT_DARK: #06131B
 - GLASS_BG: White 16% opacity (frosted glass effect)
 
-**Component Factories**:
+**Primary modules**:
+- `theme_tokens.py` â€” colors and glass tokens
+- `theme_primitives.py` â€” cards, badges, fields, empty states
+- `theme_shells.py` â€” background and role shell
+- `theme_auth.py` â€” auth fields and auth shell
+- `theme_tables.py`, `theme_nav.py` â€” shared table and nav helpers
+
+**Facade exports**:
 - `glass_container(content, width, height, padding=24, radius=28)` — Frosted glass panel
 - `button_style(kind="primary", radius=8)` — Returns ButtonStyle (Airbnb-inspired)
 - `status_badge(label, kind)` — Colored pill badge
@@ -264,7 +271,8 @@ Con_Bo_Cuoi/
 ### ui/components/admin/
 **main_admin.py**: Navigation shell (sidebar/bottom nav) with 6 screens
 **dashboard.py**: KPIs (total users, cameras, open alerts, pending reviews)
-**user_management.py**: Table with CRUD controls, role dropdown, delete confirmation
+**train_management.py**: Thin builder; delegates form, runtime polling, and install/apply actions to `train_management_*`
+**user_management.py**: Thin builder; delegates cards, filters, and per-model controls to `user_management_*`
 **model_management.py**: Model list, confidence/IOU sliders, file path input
 **oa_management.py**: Alert resolution table, analytics, status update buttons
 **settings.py**: Config form (server URL, camera index, mode, port), restart button triggers `os.execv()`
@@ -287,7 +295,7 @@ Con_Bo_Cuoi/
 **main_farmer.py**: Navigation shell with 7 screens for farmer role
 **dashboard.py**: Cached KPI cards (loads from monitor_cache.json if offline)
 **live_monitoring.py**: LiveMonitoringController (polling snapshots at ~2 sec intervals), image display, stream URL
-**health_consulting.py**: Chat input + camera stream, context-aware responses
+**health_consulting.py**: Thin builder; delegates selection, AI chat, expert chat, widgets, and camera flow to `health_consulting_*`
 **session_history.py**: Table of past consulting sessions, outcome summaries
 **utilities.py**: Quick search, session export
 **settings.py**: Notification, camera index, auto-connect toggle
@@ -358,7 +366,7 @@ Migration: Replace BaseRepo.__init__/__read__/__write__ with SQLAlchemy Session 
 | **Comments** | Docstrings for functions; inline for logic >3 lines |
 | **Imports** | `from ui.theme import ...` (not `from ../theme`) |
 | **Encoding** | Always `open(path, 'w', encoding='utf-8')` |
-| **No Globals** | State is local closures or page.client_storage |
+| **No Globals** | State is local closures or auth/session helpers |
 | **Error Handling** | Try/except on file I/O, network calls, subprocess |
 | **Type Hints** | Function signatures include return types |
 
@@ -367,7 +375,7 @@ Migration: Replace BaseRepo.__init__/__read__/__write__ with SQLAlchemy Session 
 ## Dependencies (requirements.txt outline)
 
 ```
-flet==0.82.2
+flet==0.28.3
 requests
 opencv-python
 PyYAML
@@ -382,8 +390,8 @@ fastapi          # Backend server
 
 ## Notes for Future Developers
 
-1. **Password Hashing**: Current SHA256 is weak. Migrate to bcrypt when time permits.
-2. **Session Persistence**: page.client_storage is lost on restart. For production web, use signed cookies or JWT.
+1. **Password Hashing**: Runtime already uses PBKDF2-HMAC-SHA256 and auto-upgrades legacy SHA256 on successful login.
+2. **Session Persistence**: `page.data` is the source of truth; legacy `page.client_storage` is still mirrored for older UI code. For production web, use signed cookies or JWT.
 3. **Email Integration**: Forgot password UI exists but no backend. Integrate with SES or SendGrid.
 4. **Concurrency**: Camera polling uses threading; always call `page.update()`, not `control.update()`.
 5. **PostgreSQL Migration**: Only modify base_repo.py; rest of codebase is DB-agnostic by design.

@@ -144,11 +144,11 @@ def get_disease_model() -> tuple[Any, dict]:
     Raise FileNotFoundError nếu chưa cấu hình đường dẫn.
     Raise RuntimeError nếu không tìm thấy record trong DB.
     """
-    from dal.model_repo import get_model_by_type
+    from dal.model_repo import get_model_by_type, resolve_model_path
     rec = get_model_by_type("disease")
     if not rec:
         raise RuntimeError("Không tìm thấy model disease trong DB.")
-    path = rec.get("duong_dan_file", "").strip()
+    path = resolve_model_path(rec.get("duong_dan_file", ""))
     if not path or not Path(path).exists():
         raise FileNotFoundError(
             f"File model không tồn tại: '{path}'\n"

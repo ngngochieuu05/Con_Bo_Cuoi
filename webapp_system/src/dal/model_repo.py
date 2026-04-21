@@ -6,10 +6,18 @@ LÆ°u thĂ´ng tin mĂ´ hĂ¬nh YOLO (YOLOv8/v11...) Ä‘á»™c láº­p th
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 from dal.base_repo import BaseRepo
 
 _repo = BaseRepo("models", pk_field="id_model")
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_WEBAPP_ROOT = _REPO_ROOT / "webapp_system"
+_DEFAULT_DISEASE_MODEL = (
+    "models/"
+    "train_yolov8s-seg_500ep-v2-16bath-20260416T071858Z-3-001/"
+    "train_yolov8s-seg_500ep-v2-16bath/weights/best.pt"
+)
 
 # Seed 3 mĂ´ hĂ¬nh YOLO Ä‘á»™c láº­p
 _SEED = [
@@ -44,7 +52,7 @@ _SEED = [
         "phien_ban": "v1.0.0",
         "trang_thai": "offline",
         "mo_ta": "PhĂ¡t hiá»‡n dáº¥u hiá»‡u bá»‡nh qua hĂ¬nh áº£nh: gháº», sÆ°ng, tá»•n thÆ°Æ¡ng da",
-        "duong_dan_file": "",
+        "duong_dan_file": _DEFAULT_DISEASE_MODEL,
         "conf": 0.60,
         "iou": 0.50,
         "updated_at": "2026-01-01T00:00:00",
@@ -70,6 +78,23 @@ def get_models_by_status(trang_thai: str) -> list[dict]:
 
 def get_model_by_type(loai_mo_hinh: str) -> dict | None:
     return _repo.find_one(loai_mo_hinh=loai_mo_hinh)
+
+
+def resolve_model_path(raw_path: str) -> str:
+    raw = str(raw_path or "").strip()
+    if not raw:
+        return ""
+
+    path = Path(raw)
+    if path.is_absolute():
+        return str(path.resolve()) if path.exists() else raw
+
+    for base in (Path.cwd(), _REPO_ROOT, _WEBAPP_ROOT):
+        candidate = (base / path).resolve()
+        if candidate.exists():
+            return str(candidate)
+
+    return raw
 
 
 def create_model(
