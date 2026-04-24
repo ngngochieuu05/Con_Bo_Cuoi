@@ -893,13 +893,13 @@ class CowSkinPreprocessApp:
         )
 
         self.batch_input_text = ft.Text(
-            value="Input: chua chon",
+            value="Input: chưa chọn",
             size=12,
             color=ft.Colors.GREY_700,
         )
 
         self.batch_output_text = ft.Text(
-            value="Output: chua chon",
+            value="Output: chưa chọn",
             size=12,
             color=ft.Colors.GREY_700,
         )
@@ -1190,7 +1190,7 @@ class CowSkinPreprocessApp:
             color_scheme_seed=ft.Colors.GREEN,
         )
 
-        # Flet 0.28.x: dung page.window.*, khong dung page.window_width.
+        # Flet 0.28.x: dùng page.window.*, không dùng page.window_width.
         try:
             self.page.window.width = 1450
             self.page.window.height = 900
@@ -1267,7 +1267,7 @@ class CowSkinPreprocessApp:
                                 weight=ft.FontWeight.BOLD,
                             ),
                             ft.Text(
-                                "Flet desktop app xu ly anh da bo truoc khi ve polygon instance segmentation tren Roboflow.",
+                                "Flet desktop app xử lý ảnh da bò trước khi vẽ polygon instance segmentation trên Roboflow.",
                                 size=13,
                                 color=ft.Colors.GREY_700,
                             ),
@@ -1498,7 +1498,7 @@ class CowSkinPreprocessApp:
                                 color=ft.Colors.GREEN_700,
                             ),
                             ft.Text(
-                                "Batch xu ly thu muc",
+                                "Batch xử lý thư mục",
                                 size=18,
                                 weight=ft.FontWeight.BOLD,
                             ),
@@ -1550,7 +1550,7 @@ class CowSkinPreprocessApp:
                                 color=ft.Colors.GREEN_700,
                             ),
                             ft.Text(
-                                "Danh sach tien trinh",
+                                "Danh sách tiến trình",
                                 size=16,
                                 weight=ft.FontWeight.BOLD,
                             ),
@@ -1821,12 +1821,12 @@ class CowSkinPreprocessApp:
                         spacing=4,
                         controls=[
                             ft.Text(
-                                "Hang doi xu ly",
+                                "Hàng đợi xử lý",
                                 size=20,
                                 weight=ft.FontWeight.BOLD,
                             ),
                             ft.Text(
-                                "Theo doi task dang chay, tam dung, dung han, tiep tuc hoac xoa tien trinh.",
+                                "Theo dõi task đang chạy, tạm dừng, dừng hẳn, tiếp tục hoặc xóa tiến trình.",
                                 size=12,
                                 color=ft.Colors.GREY_700,
                             ),
@@ -1856,7 +1856,7 @@ class CowSkinPreprocessApp:
                         color=ft.Colors.GREEN_700,
                     ),
                     ft.Text(
-                        "Chua co preview",
+                        "Chưa có preview",
                         size=22,
                         weight=ft.FontWeight.BOLD,
                     ),
@@ -2142,7 +2142,7 @@ class CowSkinPreprocessApp:
         error = sum(1 for task in self.batch_tasks if task.status == "Error")
 
         if total == 0:
-            self.batch_queue_text.value = "Chua co batch task."
+            self.batch_queue_text.value = "Chưa có batch task."
             return
 
         self.batch_queue_text.value = (
@@ -2163,7 +2163,7 @@ class CowSkinPreprocessApp:
             color=ft.Colors.GREY_700,
         )
         task.detail_text = ft.Text(
-            value=f"0/{task.total_files} anh | Output: {task.output_dir}",
+            value=f"0/{task.total_files} ảnh | Output: {task.output_dir}",
             size=11,
             color=ft.Colors.GREY_600,
         )
@@ -2189,7 +2189,7 @@ class CowSkinPreprocessApp:
             on_click=lambda e, task_id=task.task_id: self.resume_batch_task(task_id),
         )
         task.delete_button = ft.OutlinedButton(
-            text="Xoa",
+            text="Xóa",
             icon=ft.Icons.DELETE_OUTLINE,
             on_click=lambda e, task_id=task.task_id: self.delete_batch_task(task_id),
         )
@@ -2276,7 +2276,7 @@ class CowSkinPreprocessApp:
         current_file = f" | File: {task.current_file}" if task.current_file else ""
         error_text = f" | Error: {task.error}" if task.error else ""
         task.detail_text.value = (
-            f"{done}/{task.total_files} anh | OK: {task.processed_count} | Loi: {task.skipped_count}"
+            f"{done}/{task.total_files} ảnh | OK: {task.processed_count} | Lỗi: {task.skipped_count}"
             f"{current_file}{error_text}"
         )
 
@@ -2289,7 +2289,7 @@ class CowSkinPreprocessApp:
             task.resume_button.disabled = task.status != "Paused"
         if task.delete_button is not None:
             task.delete_button.disabled = task.delete_requested
-            task.delete_button.text = "Dang xoa" if task.delete_requested else "Xoa"
+            task.delete_button.text = "Đang xóa" if task.delete_requested else "Xóa"
 
         self.refresh_batch_queue_label()
         self.refresh_page()
@@ -2311,7 +2311,7 @@ class CowSkinPreprocessApp:
         task.pause_requested = True
         task.status = "Paused"
         self.update_batch_task_ui(task, force=True)
-        self.update_status(f"Da tam dung Task #{task.task_id}.")
+        self.update_status(f"Đã tạm dừng Task #{task.task_id}.")
 
     def stop_batch_task(self, task_id: int):
         task = self.find_batch_task(task_id)
@@ -2323,7 +2323,7 @@ class CowSkinPreprocessApp:
         task.hard_stop_requested = True
         task.status = "Stopping"
         self.update_batch_task_ui(task, force=True)
-        self.update_status(f"Dang dung han Task #{task.task_id}.")
+        self.update_status(f"Đang dừng hẳn Task #{task.task_id}.")
 
     def resume_batch_task(self, task_id: int):
         task = self.find_batch_task(task_id)
@@ -2334,7 +2334,7 @@ class CowSkinPreprocessApp:
         task.pause_requested = False
         task.status = "Running"
         self.update_batch_task_ui(task, force=True)
-        self.update_status(f"Da tiep tuc Task #{task.task_id}.")
+        self.update_status(f"Đã tiếp tục Task #{task.task_id}.")
 
     def delete_batch_task(self, task_id: int):
         task = self.find_batch_task(task_id)
@@ -2346,11 +2346,11 @@ class CowSkinPreprocessApp:
             task.hard_stop_requested = True
             task.status = "Stopping"
             self.update_batch_task_ui(task, force=True)
-            self.update_status(f"Task #{task.task_id} se bi xoa sau khi dung.")
+            self.update_status(f"Task #{task.task_id} sẽ bị xóa sau khi dừng.")
             return
         self.remove_batch_task(task_id)
-        self.update_status(f"Da xoa Task #{task_id} khoi danh sach.")
-        self.show_snack(f"Da xoa Task #{task_id}.")
+        self.update_status(f"Đã xóa Task #{task_id} khỏi danh sách.")
+        self.show_snack(f"Đã xóa Task #{task_id}.")
 
     def process_batch_task(self, task: BatchTask):
         if task.hard_stop_requested:
@@ -2359,7 +2359,7 @@ class CowSkinPreprocessApp:
             task.status = "Paused" if task.pause_requested else "Running"
         self.update_batch_task_ui(task, force=True)
         if task.status == "Running":
-            self.update_status(f"Task #{task.task_id} dang xu ly {task.total_files} anh...")
+            self.update_status(f"Task #{task.task_id} đang xử lý {task.total_files} ảnh...")
 
         files = [
             src for src in task.input_dir.rglob("*")
@@ -2421,19 +2421,19 @@ class CowSkinPreprocessApp:
 
         if task.delete_requested:
             self.remove_batch_task(task.task_id)
-            self.update_status(f"Da xoa Task #{task.task_id} khoi danh sach.")
-            self.show_snack(f"Da xoa Task #{task.task_id}.")
+            self.update_status(f"Đã xóa Task #{task.task_id} khỏi danh sách.")
+            self.show_snack(f"Đã xóa Task #{task.task_id}.")
             return
 
         summary = (
-            f"Task #{task.task_id} xong | OK: {task.processed_count} | Loi: {task.skipped_count}"
+            f"Task #{task.task_id} xong | OK: {task.processed_count} | Lỗi: {task.skipped_count}"
         )
         if task.status == "Cancelled":
             summary = (
-                f"Task #{task.task_id} da dung | OK: {task.processed_count} | Loi: {task.skipped_count}"
+                f"Task #{task.task_id} đã dừng | OK: {task.processed_count} | Lỗi: {task.skipped_count}"
             )
         elif task.error:
-            summary += f" | Loi dau tien: {task.error}"
+            summary += f" | Lỗi đầu tiên: {task.error}"
 
         self.update_status(summary)
         self.show_snack(summary)
@@ -2478,7 +2478,7 @@ class CowSkinPreprocessApp:
         file_path = Path(e.files[0].path)
 
         if file_path.suffix.lower() not in SUPPORTED_EXTS:
-            self.show_snack("File khong hop le. Hay chon anh jpg/jpeg/png/bmp/webp.")
+            self.show_snack("File không hợp lệ. Hãy chọn ảnh jpg/jpeg/png/bmp/webp.")
             return
 
         img = read_image_bgr(file_path)
@@ -2547,7 +2547,7 @@ class CowSkinPreprocessApp:
             if self.save_image_button is not None:
                 self.save_image_button.disabled = True
             self.refresh_page()
-            self.show_snack(f"Loi xu ly anh: {exc}")
+            self.show_snack(f"Lỗi xử lý ảnh: {exc}")
 
     def open_save_dialog(self, e):
         if self.processed_img is None:
@@ -2776,11 +2776,11 @@ class CowSkinPreprocessApp:
 
     def run_batch(self, e):
         if self.batch_input_dir is None:
-            self.show_snack("Hay chon thu muc input truoc.")
+            self.show_snack("Hãy chọn thư mục input trước.")
             return
 
         if self.batch_output_dir is None:
-            self.show_snack("Hay chon thu muc output truoc.")
+            self.show_snack("Hãy chọn thư mục output trước.")
             return
 
         cfg = self.get_config_from_controls()
@@ -2795,7 +2795,7 @@ class CowSkinPreprocessApp:
         ]
 
         if not files:
-            self.show_snack("Folder input khong co anh hop le.")
+            self.show_snack("Folder input không có ảnh hợp lệ.")
             return
 
         task = BatchTask(
@@ -2810,9 +2810,9 @@ class CowSkinPreprocessApp:
         self.add_batch_task(task)
         self.set_active_tab(2)
         self.update_status(
-            f"Da tao Task #{task.task_id} | {task.total_files} anh | preview van hoat dong doc lap."
+            f"Đã tạo Task #{task.task_id} | {task.total_files} ảnh | preview vẫn hoạt động độc lập."
         )
-        self.show_snack(f"Da them Task #{task.task_id} vao batch queue.")
+        self.show_snack(f"Đã thêm Task #{task.task_id} vào batch queue.")
         threading.Thread(
             target=self.process_batch_task,
             args=(task,),
