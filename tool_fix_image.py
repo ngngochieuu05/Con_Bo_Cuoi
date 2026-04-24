@@ -971,6 +971,17 @@ class CowSkinPreprocessApp:
             color=ft.Colors.GREY_700,
         )
 
+        self.review_original_info = ft.Text(
+            value="Ch?a ch?n ?nh.",
+            size=12,
+            color=ft.Colors.GREY_700,
+        )
+        self.review_processed_info = ft.Text(
+            value="Ch?a x? l?.",
+            size=12,
+            color=ft.Colors.GREY_700,
+        )
+
         self.enable_resize = ft.Switch(
             label="Resize + padding vuông",
             value=self.cfg.enable_resize,
