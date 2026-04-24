@@ -272,9 +272,10 @@ Con_Bo_Cuoi/
 **main_admin.py**: Navigation shell (sidebar/bottom nav) with 6 screens
 **dashboard.py**: KPIs (total users, cameras, open alerts, pending reviews)
 **train_management.py**: Thin builder; delegates form, runtime polling, and install/apply actions to `train_management_*`
-**user_management.py**: Thin builder; delegates cards, filters, and per-model controls to `user_management_*`
-**model_management.py**: Model list, confidence/IOU sliders, file path input
-**oa_management.py**: Alert resolution table, analytics, status update buttons
+**user_management.py**: Account workspace wrapper with KPI strip and filter/search block
+**model_management.py**: Registry wrapper with summary metrics, type filters, and production/testing semantics
+**model_management_cards.py**: Per-model workflow card with bottom-sheet actions for config save, testing, apply-to-production, and disable
+**oa_management.py**: Alert/analytics workspace with mobile-first drilldown tabs and action sheet
 **settings.py**: Config form (server URL, camera index, mode, port), restart button triggers `os.execv()`
 **profile_admin.py**: Display name, avatar, change password form
 

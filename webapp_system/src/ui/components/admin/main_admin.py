@@ -20,12 +20,12 @@ def AdminMainScreen(page: ft.Page, on_logout=None):
         "settings": build_admin_settings,
     }
     navigation_items = [
-        ("dashboard", "Tong quan", "DASHBOARD"),
-        ("users", "Tai khoan", "GROUP"),
-        ("models", "Mo hinh", "SMART_TOY"),
+        ("dashboard", "Tổng quan", "DASHBOARD"),
+        ("users", "Tài khoản", "GROUP"),
+        ("models", "Mô hình", "SMART_TOY"),
         ("train", "Train AI", "MODEL_TRAINING"),
-        ("analytics", "Thong ke", "ANALYTICS"),
-        ("settings", "Cai dat", "SETTINGS"),
+        ("analytics", "Thống kê", "ANALYTICS"),
+        ("settings", "Cài đặt", "SETTINGS"),
     ]
     selected = {"key": "dashboard"}
     content_holder = ft.Container(expand=True)
@@ -44,8 +44,8 @@ def AdminMainScreen(page: ft.Page, on_logout=None):
         else:
             content_holder.content = view_builder()
         root.content = build_role_shell(
-            role_title="QUAN TRI",
-            role_subtitle="Trung tam dieu hanh he thong",
+            role_title="QUẢN TRỊ",
+            role_subtitle="Trung tâm điều hành hệ thống",
             navigation_items=navigation_items,
             selected_key=selected["key"],
             on_select=select_view,

@@ -7,6 +7,7 @@ def build_expert_settings(on_logout=None):
         expand=True,
         spacing=14,
         scroll=ft.ScrollMode.AUTO,
+        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         controls=[
             ft.Text("Cài đặt chuyên gia", size=22, weight=ft.FontWeight.W_700),
             glass_container(

@@ -1,14 +1,33 @@
-# Design Guidelines — Con Bò Cưới
+# Design Guidelines - Con Bo Cuoi
 
 ## Design Philosophy
 
-Con Bò Cưới follows a **modern, approachable design system** inspired by Airbnb and Apple:
+Con Bo Cuoi uses a dark glass UI system with a stricter operations-facing tone.
 
-- **Clarity:** Every element has a purpose; no clutter
-- **Hierarchy:** Important actions are prominent; secondary actions are subtle
-- **Consistency:** Same patterns used throughout the app
-- **Accessibility:** WCAG AA compliant (work in progress)
-- **Responsiveness:** Desktop (sidebar) ↔ Mobile (bottom nav) seamlessly
+- Clarity: every control should explain itself fast
+- Hierarchy: first fold must surface what needs attention now
+- Consistency: shared tokens and shared factories win over local styling
+- Accessibility: contrast and touch targets are non-negotiable
+- Responsiveness: desktop shell and mobile shell should feel like the same product
+
+---
+
+## Operations-Professional Direction
+
+For `expert` and `admin` screens, the visual tone is intentionally stricter:
+
+- quieter background treatment
+- stronger contrast and denser hierarchy
+- action blocks before decorative content
+- glass surfaces used as structure, not ornament
+- bottom sheets preferred over modal-heavy branching on mobile
+
+Apply this tone to:
+
+- expert dashboard, consulting, raw review, utilities, settings
+- admin dashboard, accounts, models, training, analytics
+
+Do not reintroduce playful hero cards or mascot-heavy emphasis into those screens.
 
 ---
 
@@ -16,204 +35,207 @@ Con Bò Cưới follows a **modern, approachable design system** inspired by Air
 
 ### Primary Palette
 
-| Name | Hex | Usage | Flet Constant |
-|------|-----|-------|---------------|
-| **Primary** | #4CAF50 | Success, CTA buttons, positive states | `PRIMARY` |
-| **Secondary** | #56CCF2 | Information, secondary actions | `SECONDARY` |
-| **Warning** | #F2C94C | Alerts, caution, pending states | `WARNING` |
-| **Danger** | #FF7A7A | Errors, critical alerts, delete actions | `DANGER` |
-| **Text Dark** | #06131B | Primary text on light backgrounds | `TEXT_DARK` |
+These values are the current runtime source of truth from `webapp_system/src/ui/theme_tokens.py`.
 
-### Extended Palette (Airbnb-Inspired Buttons)
+| Name | Hex | Usage | Constant |
+|------|-----|-------|----------|
+| Primary | `#4FC38A` | main CTA, active emphasis, positive state | `PRIMARY` |
+| Secondary | `#6FB7FF` | informational state, secondary emphasis | `SECONDARY` |
+| Warning | `#E7B754` | caution, pending, review needed | `WARNING` |
+| Danger | `#FF8B8B` | critical status and destructive signaling | `DANGER` |
+| Success | `#73D79A` | success-only messaging and confirmations | `SUCCESS` |
+| Neutral | `#AAB7C4` | low-emphasis status, muted indicators | `NEUTRAL` |
+| Text Dark | `#08141B` | dark text on light surfaces | `TEXT_DARK` |
+
+### Button Palette
+
+These are internal button tokens used by `button_style()`.
 
 | Name | Hex | Usage |
 |------|-----|-------|
-| **Near Black** | #222222 | Primary button background |
-| **Rausch Red** | #ff385c | Secondary button, hover state |
-| **Deep Rausch** | #e00b41 | Secondary button pressed state |
-| **Surface Light** | #f2f2f2 | Light backgrounds, surface buttons |
-| **Error** | #c13515 | Danger button background |
+| Near Black | `#1B2730` | secondary button background, dark surface text |
+| Soft Green Hover | `#3FA877` | primary hover state |
+| Deep Green Hover | `#2D875D` | pressed/deeper success emphasis |
+| Surface Light | `#E8EDF1` | light utility button background |
+| Error | `#C84833` | destructive button background |
+| Error Dark | `#AC3623` | destructive hover state |
 
-### Neutral Palette
+### Neutral Colors
 
-| Name | Flet Constant | Usage |
-|------|---------------|-------|
-| **White** | `ft.Colors.WHITE` | Backgrounds, text on dark |
-| **Black** | `ft.Colors.BLACK` | Text on light |
-| **Gray** | `ft.Colors.WHITE24/38/54/70` | Borders, disabled states, hints |
+| Value | Usage |
+|-------|-------|
+| `ft.Colors.WHITE` | text on dark surfaces |
+| `ft.Colors.BLACK` | overlays, shadows, low-level borders |
+| `ft.Colors.WHITE24/38/54/70` | low-emphasis text, hints, dividers |
 
-### Glass Effect (Frosted Glass)
+---
+
+## Surface Tokens
+
+### Glass Surface
 
 ```python
-GLASS_BG = ft.Colors.with_opacity(0.16, ft.Colors.WHITE)
-GLASS_BORDER = ft.Colors.with_opacity(0.18, ft.Colors.WHITE)
+GLASS_BG = ft.Colors.with_opacity(0.74, "#182833")
+GLASS_BORDER = ft.Colors.with_opacity(0.14, "#F4F7FA")
 GLASS_SHADOW = ft.BoxShadow(
-    blur_radius=28,
-    color=ft.Colors.BLACK45,
-    offset=ft.Offset(0, 14),
+    blur_radius=34,
+    color=ft.Colors.with_opacity(0.30, ft.Colors.BLACK),
+    offset=ft.Offset(0, 18),
 )
 ```
 
-All content panels use `glass_container()` for visual consistency.
+This is no longer a white frosted card system. The current product ships with dark teal glass panels.
+
+### Background Treatment
+
+App shells and auth screens share the same layered background approach:
+
+- base fill: `#0E171D`
+- background image: `backround.png` with opacity around `0.22` to `0.24`
+- primary diagonal gradient: `#112028D8 -> #18303CD2 -> #214A55CC`
+- horizontal dark overlay: `#091117D8 -> #091117B8 -> #09111742`
+- radial cyan accent: `#83D9FF24`
+- radial green accent: `#6FD59D18`
+- final vertical depth overlay: `#0A131740 -> #0A131714 -> #0A131788`
+
+Design intent:
+
+- dark-first shell
+- controlled atmospheric depth
+- enough texture to avoid flatness
+- enough restraint to keep dashboards readable
+
+### Auth/Input Surface
+
+Auth fields and inline fields should stay consistent with the shell:
+
+- field background: `ft.Colors.with_opacity(0.14, "#D9E5ED")`
+- field border: `ft.Colors.with_opacity(0.26, "#D9E5ED")`
+- focused border: `PRIMARY`
+- auth/form card background: same dark glass token family as runtime shell
 
 ---
 
 ## Typography
 
 ### Font Families
-- **Primary:** System default (Segoe UI on Windows, San Francisco on macOS, Roboto on Linux)
-- **Monospace:** For data display, code snippets (Courier New, Consolas)
 
-### Font Sizes & Weights
+- Primary: system sans stack
+- Monospace: system monospace for code-like or dense data contexts
 
-| Context | Size (sp) | Weight | Usage |
-|---------|----------|--------|-------|
-| **Page Title** | 28 | W_700 | Screen headers |
-| **Section Title** | 17 | W_700 | Section headers, card titles |
-| **Body** | 14 | W_400 | Main content, descriptions |
-| **Caption** | 11 | W_400 | Hints, helper text, timestamps |
-| **Button** | 14 | W_500 | Button labels |
-| **Badge** | 11 | W_600 | Status badges, tags |
+### Font Sizes and Weights
+
+| Context | Size | Weight | Usage |
+|---------|------|--------|-------|
+| Page Title | `24-28` | `W_700` | screen headers and hero metrics |
+| Section Title | `17` | `W_700` | card/section headers |
+| Body | `13-14` | `W_400` | main content and field text |
+| Caption | `10-12` | `W_400` | supporting text, timestamps, helper copy |
+| Button | `14` | `W_500` | button labels |
+| Badge | `11` | `W_600` | status badges and chips |
 
 ### Flet Weight Constants
 
 ```python
-ft.FontWeight.W_400  # Regular
-ft.FontWeight.W_500  # Medium
-ft.FontWeight.W_600  # Semibold
-ft.FontWeight.W_700  # Bold
+ft.FontWeight.W_400
+ft.FontWeight.W_500
+ft.FontWeight.W_600
+ft.FontWeight.W_700
 ```
 
-**Never use strings** like `weight="bold"` or integers like `weight=700`.
+Do not use string weights or raw numeric literals.
 
 ---
 
 ## Spacing System
 
-### Base Unit: 4px
+### Base Unit
 
-All spacing uses multiples of 4px for consistency:
+The design system still follows a 4px rhythm.
 
 | Multiplier | Pixels | Usage |
 |-----------|--------|-------|
-| 0.5x | 2px | Micro spacing (between icon + text) |
-| 1x | 4px | Small gaps (inside tight components) |
-| 2x | 8px | Standard padding inside components |
-| 3x | 12px | Padding inside cards, buttons |
-| 4x | 16px | Vertical spacing between sections |
-| 6x | 24px | Padding inside glass containers |
-| 7x | 28px | Spacing between screens |
+| 1x | `4px` | tight spacing inside compact controls |
+| 2x | `8px` | standard control spacing |
+| 3x | `12px` | compact section padding |
+| 4x | `16px` | standard section spacing |
+| 5x | `20px` | shell/card internal padding on dense views |
+| 6x | `24px` | default glass container padding |
+| 7x | `28px` | larger shell radii and screen spacing |
 
-### Flet Spacing Helpers
-
-```python
-# Instead of hardcoding:
-ft.padding.symmetric(horizontal=8, vertical=3)    # 2x h, 0.75x v
-ft.padding.symmetric(horizontal=16, vertical=12)  # 4x h, 3x v
-ft.margin.only(bottom=16)                         # 4x bottom margin
-```
+Use Flet padding helpers instead of scattered numeric values.
 
 ---
 
 ## Button Styles
 
+All shared buttons should come from `button_style()`.
+
 ### Primary Button
 
 ```python
-button_style(kind="primary")
+button_style("primary")
 ```
 
-**Visual:**
-- Background: Near Black (#222222)
-- Text: White
-- Hover: Rausch Red (#ff385c)
-- Pressed: Deep Rausch (#e00b41)
-- Border radius: 8px
-- Font weight: W_500
-
-**Usage:**
-- Main call-to-action (submit, save, confirm)
-- Should be the most prominent action on screen
-- Only 1 primary button per screen
-
-**Example:**
-```python
-ft.ElevatedButton(
-    text="Save Changes",
-    style=button_style("primary"),
-    on_click=on_save,
-)
-```
+- background: `PRIMARY` (`#4FC38A`)
+- text: white
+- hover: `#3FA877`
+- border: same as background
+- role: main submit/save/confirm action
 
 ### Secondary Button
 
 ```python
-button_style(kind="secondary")
+button_style("secondary")
 ```
 
-**Visual:**
-- Background: Rausch Red (#ff385c)
-- Text: White
-- Hover: Deep Rausch (#e00b41)
-- Border radius: 8px
-
-**Usage:**
-- Important secondary actions (cancel, delete, reset)
-- Less prominent than primary
+- background: `#1B2730`
+- text: white
+- hover: `#22323D`
+- role: strong secondary action on dark shells
 
 ### Surface Button
 
 ```python
-button_style(kind="surface")
+button_style("surface")
 ```
 
-**Visual:**
-- Background: Light (#f2f2f2)
-- Text: Near Black (#222222)
-- Border: 1px light gray
-- Hover: Slight darkening
-
-**Usage:**
-- Utility buttons (add, edit, view details)
-- Icon buttons, circular buttons
-- Low-emphasis actions
+- background: `#E8EDF1`
+- text: `#1B2730`
+- hover: `12%` black overlay
+- border: subtle dark border
+- role: utility action, filters, inline tools
 
 ### Warning Button
 
 ```python
-button_style(kind="warning")
+button_style("warning")
 ```
 
-**Visual:**
-- Background: Amber (#F2C94C)
-- Text: Dark (#06131B)
-- Hover: Darkened amber
-
-**Usage:**
-- Caution actions (overwrite, force delete)
+- background: `WARNING` (`#E7B754`)
+- text: `TEXT_DARK`
+- hover: same tone
+- role: caution or irreversible-but-not-destructive action
 
 ### Danger Button
 
 ```python
-button_style(kind="danger")
+button_style("danger")
 ```
 
-**Visual:**
-- Background: Error red (#c13515)
-- Text: White
-- Hover: Dark error (#b32505)
+- background: `#C84833`
+- text: white
+- hover: `#AC3623`
+- role: destructive actions
 
-**Usage:**
-- Destructive actions (delete permanently, clear data)
+### Size Guidance
 
-### Button Size Guidelines
-
-| Size | Width | Height | Font | Usage |
-|------|-------|--------|------|-------|
-| **Large** | 100% (full) | 48px | 14px | Main CTAs, form submit |
-| **Medium** | 120px–200px | 40px | 14px | Standard buttons, modals |
-| **Small** | 80px–120px | 32px | 12px | Toolbar, inline actions |
-| **Icon** | 40px | 40px | 20px | Icon-only buttons |
+| Size | Height | Usage |
+|------|--------|-------|
+| Large | `48px` | primary CTAs and form submits |
+| Medium | `40px` | default action button |
+| Small | `32px` | inline or toolbar action |
+| Icon | `40px` square | icon-only utility actions |
 
 ---
 
@@ -221,515 +243,295 @@ button_style(kind="danger")
 
 ### Glass Container
 
-Every data panel/card uses frosted glass styling:
+Use `glass_container()` for shared panel styling.
 
 ```python
 glass_container(
     content=ft.Column(controls=[...]),
-    width=400,
-    height=300,
     padding=24,
     radius=28,
 )
 ```
 
-**Features:**
-- Frosted glass background (16% white opacity)
-- Subtle border (18% white opacity)
-- Drop shadow (blur_radius=28, offset=(0, 14))
-- Rounded corners (28px radius)
-- Interior padding (24px default)
+Runtime defaults:
+
+- dark glass background
+- subtle cool border
+- black shadow with deeper blur than the original v1 doc
+- rounded corners usually `26-28`
 
 ### Status Badge
 
-Color-coded pill badge for status indicators:
+Use `status_badge(label, kind)`.
 
-```python
-status_badge(label="Active", kind="primary")
-status_badge(label="Pending", kind="warning")
-status_badge(label="Error", kind="danger")
-```
+Current badge treatment:
 
-**Sizes:**
-- Height: 20px (fixed)
-- Padding: 8px horizontal, 3px vertical
-- Font: 11px, W_600
+- padding: `10px horizontal`, `4px vertical`
+- background opacity: `0.28`
+- border opacity: `0.62`
+- text color: white for most kinds
+- warning text color: `#1A1A1A`
 
-**Colors:**
-- Background: Semi-transparent color (22% opacity)
-- Border: Semi-transparent color (45% opacity)
-- Text: Solid color (matching kind)
+Kinds:
+
+- `primary`
+- `secondary`
+- `warning`
+- `danger`
+- `success`
+- `neutral`
 
 ### Metric Card
 
-Display a key metric with large number + label:
+Use `metric_card()` for top-level KPI summaries.
 
-```python
-metric_card(
-    title="Total Cattle",
-    value="247",
-    icon=ft.Icons.PETS,
-    icon_color=PRIMARY,
-)
-```
+Structure:
 
-**Structure:**
-```
-┌──────────────────┐
-│ [ICON] Total ... │
-│      247         │
-└──────────────────┘
-```
+- small muted title
+- compact icon accent on the right
+- large numeric or headline value
+- enclosed in a glass container
 
-### Data Table
+### Section Title and Page Header
 
-Display structured data in a scrollable table:
+Use:
 
-```python
-data_table(
-    columns=["ID", "Name", "Status", "Actions"],
-    rows=[
-        ["1", "Herd A", "Active", "[Edit] [Delete]"],
-        ["2", "Herd B", "Offline", "[Edit] [Delete]"],
-    ],
-)
-```
-
-**Features:**
-- Header row: bold, background color
-- Data rows: alternating background (zebra striping)
-- Scrollable horizontally for overflow
-- Action buttons right-aligned
-
-### Section Title
-
-Header for a group of related content:
-
-```python
-section_title(
-    icon_name="DASHBOARD",  # ft.Icons.DASHBOARD
-    text="Overview",
-    subtitle="Real-time metrics",
-)
-```
-
-**Structure:**
-```
-📊 Overview
-  Real-time metrics
-```
+- `section_title()` for local grouped content
+- `page_header()` for screen-level headers with optional actions
 
 ### Empty State
 
-Placeholder when no data exists:
+Use `empty_state()` when no data exists.
 
-```python
-empty_state(text="No cameras assigned yet")
-```
+Current pattern:
 
-**Visual:**
-- Centered icon (36px, 24% opacity)
-- Help text below (13px, 38% opacity)
-- Suggests user what to do next
+- centered inbox icon
+- low-emphasis copy
+- no decorative filler
 
-### Inline Field
+### Inputs
 
-Compact text input (form-style):
+Use:
 
-```python
-inline_field(
-    label="Username",
-    value="john_doe",
-    icon=ft.Icons.PERSON,
-    hint="Enter your username",
-    expand=True,
-)
-```
+- `inline_field()` inside runtime screens
+- `auth_text_field()` and `auth_dropdown()` inside auth flows
+
+Do not introduce separate field styling unless it becomes a shared token.
 
 ---
 
 ## Layout Patterns
 
-### Main Shell (Responsive)
+### Main Shell
 
-All main screens use `build_role_shell()` to adapt layout:
+Use `build_role_shell()` for user, expert, and admin runtime screens.
 
-**Desktop Layout** (width > 900px):
-```
-┌─────────┬──────────────────┐
-│ NAV     │  CONTENT         │
-│ SIDEBAR │  (dynamic)       │
-│         │                  │
-│         │                  │
-│         │                  │
-└─────────┴──────────────────┘
-```
+#### Desktop
 
-**Mobile Layout** (width ≤ 900px):
-```
-┌──────────────────────────┐
-│  CONTENT (full width)    │
-│  (scrollable)            │
-├──────────────────────────┤
-│ NAV BOTTOM BAR (5 items) │
-└──────────────────────────┘
-```
+- top bar uses dark glass strip
+- left sidebar width: `276px`
+- sidebar and content both live inside glass containers
+- shell/content card radius: `26`
 
-### Navigation Sidebar (Desktop)
+#### Mobile
 
-```
-┌─────────────┐
-│  Logo/App   │
-├─────────────┤
-│ ► Dashboard │  ← selected (highlighted)
-│   Users     │
-│   Reports   │
-│   Settings  │
-│   Profile   │
-├─────────────┤
-│   Logout    │  ← bottom-aligned
-└─────────────┘
-```
+- top header uses dark glass strip
+- content area gets `bottom=96` padding to clear bottom nav
+- main mobile content container radius: `26`
+- bottom nav floats above content
 
-**Styling:**
-- Width: 240px
-- Background: Dark (near black #222222)
-- Text: White
-- Selected item: Accent color background
-- Icons: 20px, left-aligned with text
+### Desktop Sidebar
 
-### Bottom Navigation Bar (Mobile)
+Desktop sidebar characteristics:
 
-```
-┌──────┬──────┬──────┬──────┬──────┐
-│ [D]  │ [U]  │ [R]  │ [S]  │ [P]  │
-│ Dash │ Users│ Rpts │ Sett │ Prof │
-└──────┴──────┴──────┴──────┴──────┘
-```
+- dark glass surface, not flat black
+- selected item uses `PRIMARY` tint with transparent fill
+- text remains white
+- subtitles use `#D2DEE6`
 
-**Styling:**
-- Height: 56px (icon 24px + label 10px + padding)
-- Background: Glass effect (matches theme)
-- Selected icon: Accent color
-- Label: 10px font, only show for selected tab
+### Bottom Navigation Bar
 
-### Screen Grid
+Use `build_glass_nav_bar()`.
 
-Main content area uses a 12-column grid system:
+Current runtime values:
 
-```
-┌─────┬─────┬─────┬─────┐
-│  6  │  6  │  -  │  -  │  2 cards, 50% width each
-└─────┴─────┴─────┴─────┘
+- height: `78px`
+- outer radius: `28`
+- background: `ft.Colors.with_opacity(0.72, "#182833")`
+- border: `1px` at `10% #F4F7FA`
+- selected item background: `28% PRIMARY`
+- selected item border: `48% PRIMARY`
+- icon size: `18`
+- label size: `9`
+- label max lines: `2`
 
-┌──────────────────────────┐
-│         12               │  1 full-width card
-└──────────────────────────┘
-
-┌───┬────┬────┬────┬───┐
-│ 3 │ 3  │ 3  │ 3  │ - │  4 cards, 25% width each
-└───┴────┴────┴────┴───┘
-```
-
-### Form Layout
-
-```
-┌──────────────────────────┐
-│  [Title]                 │
-│  [Description]           │
-├──────────────────────────┤
-│  [Label 1]               │
-│  [Input 1]               │
-│                          │
-│  [Label 2]               │
-│  [Input 2]               │
-│                          │
-│  [Label 3]               │
-│  [Dropdown 3]            │
-├──────────────────────────┤
-│  [Cancel]  [Submit]      │
-└──────────────────────────┘
-```
-
-**Vertical spacing:** 16px between fields, 24px before buttons
+Do not hide labels on unselected tabs anymore. The current mobile nav keeps all labels visible for readability.
 
 ---
 
-## Animation & Motion
+## Motion and Interaction
 
-### Transitions (When Applicable)
+Use motion sparingly.
 
-Flet has limited animation support. Use transitions sparingly:
+- button hover: around `200ms`
+- nav hover/selection: around `200ms`
+- shell transitions should support readability first
 
-- **Page transitions:** 300ms fade-in
-- **Button feedback:** 100ms opacity change on hover
-- **Modal appear:** 250ms slide-up
-- **Notification toast:** 200ms fade-in, 300ms fade-out
-
-**Principle:** Animations should feel natural and not distract from content.
-
-### Disabled States
-
-When a control is disabled:
-- Opacity: 50%
-- Cursor: not-allowed (when possible)
-- Text color: Gray (WHITE38 or WHITE54)
-
-```python
-ft.ElevatedButton(
-    text="Save",
-    disabled=True,  # Flet handles styling
-)
-```
+Do not add ornamental animation to operations-heavy screens.
 
 ---
 
-## Accessibility (A11y)
+## Accessibility
 
-### WCAG AA Compliance Checklist
+### Core Rules
 
-- [ ] **Color Contrast:** All text ≥4.5:1 contrast ratio
-  - Primary text on white: #06131B (15.3:1 ✓)
-  - Primary text on glass: White on glass (>7:1 ✓)
-  - Danger red on white: #FF7A7A (5.2:1 ✓)
+- maintain WCAG AA contrast where practical
+- keep body text at `>= 13px`
+- keep mobile tap targets around `40px+`
+- every icon action needs a text label or tooltip
+- field labels must stay explicit
 
-- [ ] **Text Alternatives:** Icons have tooltips or nearby labels
-  - ✓ Navigation icons have labels in sidebar
-  - ✓ Button icons have text in button
+### Practical Checks
 
-- [ ] **Keyboard Navigation:**
-  - [ ] Tab order is logical (top-to-bottom, left-to-right)
-  - [ ] All actions accessible via keyboard (not mouse-only)
-  - [ ] Focus indicators visible (Flet default)
-
-- [ ] **Readable Text:**
-  - ✓ Font size ≥12px for body text
-  - ✓ Line height ≥1.5x font size
-  - ✓ Max line length 80 characters
-
-- [ ] **Form Labels:**
-  - ✓ Every input has explicit label
-  - ✓ Error messages clear and actionable
-
-- [ ] **Motion & Animations:**
-  - [ ] No auto-playing animations > 5 seconds
-  - [ ] Animations have reduced-motion option
+- white text on dark glass remains the default safe pairing
+- warning badges/buttons use dark text for contrast
+- focus state should remain visible through `PRIMARY` focused borders
+- mobile nav labels stay visible to reduce icon-only ambiguity
 
 ---
 
-## Dark Mode (Future Enhancement)
+## Error and Success States
 
-Reserved for Phase 4. When implementing:
+### Error Blocks
 
-| Element | Light | Dark |
-|---------|-------|------|
-| **Background** | White | #1a1a1a |
-| **Card** | #f5f5f5 | #2a2a2a |
-| **Text** | #06131B | #f0f0f0 |
-| **Primary** | #4CAF50 | #66bb6a |
-| **Accent** | #ff385c | #ff6b7a |
+Recommended treatment:
 
----
+- background: danger tint using current `DANGER` family, not the old `#FF7A7A`
+- border: stronger danger border than body surface
+- action buttons: `surface` or `danger` depending on severity
 
-## Responsive Design Breakpoints
+### Success Blocks
 
-```
-Mobile    Tablet    Desktop   Ultra-Wide
-┌────┐   ┌─────┐   ┌──────┐   ┌────────┐
-│ 1x │   │ 2x  │   │ 3x   │   │ 4x     │
-└────┘   └─────┘   └──────┘   └────────┘
- 320px    600px    900px      1440px
-```
+Recommended treatment:
 
-### Breakpoint Behavior
+- background: success tint using `SUCCESS` or `PRIMARY`
+- border: success tint border
+- keep copy concise and next-step oriented
 
-| Screen Size | Layout | Nav | Cards |
-|-------------|--------|-----|-------|
-| **<600px** | Single column | Bottom bar | 1 per row |
-| **600–900px** | 2 columns | Bottom bar | 2 per row |
-| **>900px** | 3+ columns | Sidebar | 3 per row |
+### Toasts
 
-### Testing Breakpoints
+Toasts should stay:
 
-- [ ] 393x852 (mobile default in main.py)
-- [ ] 600x800 (small tablet)
-- [ ] 1024x768 (tablet landscape)
-- [ ] 1920x1080 (desktop)
+- compact
+- high-contrast
+- short-lived
+- free of verbose explanation
 
 ---
 
-## Error & Success States
+## Responsive Breakpoints
 
-### Error Message Styling
+Current shell logic effectively treats:
 
-```
-┌─────────────────────────────────┐
-│ ⚠️  [Error Title]                │
-│ [Detailed explanation of error] │
-│ [Suggested action or hint]       │
-│ [Dismiss] [Retry]               │
-└─────────────────────────────────┘
-```
+- mobile/tablet shell: `<= 900px`
+- desktop shell: `> 900px`
 
-**Styling:**
-- Background: Semi-transparent danger color (22% #FF7A7A)
-- Border: 1px danger red
-- Icon: Error icon (18px, #FF7A7A)
-- Text: Dark text (#06131B) on light, white on dark
+Recommended content behavior:
 
-### Success Message Styling
+| Screen Size | Layout | Navigation |
+|-------------|--------|------------|
+| `< 600px` | single column | bottom nav |
+| `600-900px` | compact two-column when content allows | bottom nav |
+| `> 900px` | desktop shell | sidebar |
 
-```
-┌─────────────────────────────────┐
-│ ✓ [Success Title]                │
-│ [What was accomplished]         │
-│ [Next action, if any]           │
-│ [Close]                         │
-└─────────────────────────────────┘
-```
+Test at minimum:
 
-**Styling:**
-- Background: Semi-transparent primary color (22% #4CAF50)
-- Border: 1px primary green
-- Icon: Checkmark (18px, #4CAF50)
-- Duration: Auto-dismiss after 5 seconds
-
-### Toast Notifications
-
-Short, temporary messages in corner:
-
-```
-┌─────────────────────┐
-│ ✓ Saved!            │
-└─────────────────────┘
-```
-
-**Styling:**
-- Small (200px width)
-- Top-right corner
-- 3s auto-dismiss
-- No action buttons
+- `393x852`
+- `600x800`
+- `1024x768`
+- `1920x1080`
 
 ---
 
-## Microcopy (Text Guidelines)
+## Microcopy
 
-### Button Labels
+- button labels should be action-first
+- placeholders should hint, not replace labels
+- errors should name the problem and the next fix
+- confirmations should describe the consequence
 
-- ✓ Action verb + object: "Save changes", "Delete user", "Export report"
-- ✗ Vague: "OK", "Yes", "Proceed"
-
-### Form Placeholders
-
-- ✓ Hints, not labels: "enter@email.com", "john_doe"
-- ✗ Full instructions: "This is a required field for..."
-
-### Error Messages
-
-- ✓ Specific: "Password must be ≥8 characters"
-- ✗ Generic: "Invalid input"
-
-### Confirmation Dialogs
-
-- ✓ Clear consequence: "This will permanently delete 5 alerts. Continue?"
-- ✗ Ambiguous: "Are you sure?"
-
-### Help Text
-
-- ✓ Concise, actionable: "Separate multiple emails with commas"
-- ✗ Verbose: "If you have more than one email address, please use the comma character (,) to separate them..."
+For admin/expert areas, prefer direct operational phrasing over marketing-style copy.
 
 ---
 
-## Localization Considerations
+## Localization Notes
 
-Current: **Vietnamese UI + English technical terminology**
+Current product language remains Vietnamese UI with some English technical terminology.
 
-### Field Name Casing
-
-Use exact database field names in Vietnamese:
-- ✓ `ten_dang_nhap` (UI label: "Username" or "Tên đăng nhập")
-- ✓ `mat_khau` (UI label: "Password" or "Mật khẩu")
-- ✗ `username` (incorrect, not in schema)
-
-### Numbers & Dates
-
-- **Numbers:** 1000 → "1,000" (US format)
-- **Dates:** ISO format in DB (2026-04-15); UI display "15/04 14:30" (Vietnamese format)
-- **Currency:** USD (if applicable) → "$500", not "500 USD"
+- database-linked field names should stay schema-accurate
+- display dates in compact Vietnamese-friendly format
+- keep operational labels short enough for mobile nav and cards
 
 ---
 
-## Design System Files
+## Theme Architecture
 
-All design tokens are centralized in:
+Theme responsibilities are now split across multiple files.
 
-```
-ui/theme.py
-├── Color constants
-├── Glass effect (GLASS_BG, GLASS_BORDER, GLASS_SHADOW)
-├── Component factories
-│   ├── glass_container()
-│   ├── button_style()
-│   ├── status_badge()
-│   ├── section_title()
-│   ├── empty_state()
-│   ├── inline_field()
-│   ├── metric_card()
-│   ├── data_table()
-│   ├── build_role_shell()
-│   └── build_auth_shell()
-└── Utilities
-    ├── fmt_dt() — format datetime
-    └── responsive helpers
+```text
+webapp_system/src/ui/
+|- theme_tokens.py      # color, button, glass tokens
+|- theme_primitives.py  # shared component factories
+|- theme_shells.py      # runtime shell/background composition
+|- theme_nav.py         # mobile nav and avatar button
+|- theme_auth.py        # auth inputs and auth shell
+|- theme_tables.py      # table helpers
+`- theme.py             # public facade/re-export layer
 ```
 
-**Never hardcode colors/spacing in screens.** Always import from `theme.py`.
+Rule:
+
+- import shared APIs from `ui.theme` in feature screens
+- update underlying token/factory modules when changing design system behavior
+- do not hardcode local colors in screens when a shared token exists
 
 ---
 
-## Common Design Pitfalls to Avoid
+## Common Pitfalls
 
-| Pitfall | ✗ Bad | ✓ Good |
-|---------|-------|--------|
-| **Hardcoded colors** | `bgcolor="#4CAF50"` | `bgcolor=PRIMARY` |
-| **Inconsistent spacing** | Random px values | Use 4px multiples |
-| **Too many fonts** | 5+ different sizes | Use defined sizes |
-| **Poor button hierarchy** | Multiple red buttons | One primary, rest secondary |
-| **No whitespace** | Content edge-to-edge | Padding around all content |
-| **Disabled state unclear** | Looks active but broken | 50% opacity when disabled |
-| **No feedback on click** | Button doesn't respond | Color change + animation |
-| **Inaccessible icons** | Icon-only button | Icon + text label |
-| **Text on images** | No contrast | Overlay with semi-transparent bg |
-| **Tiny touch targets** | <32px buttons | 40px+ for mobile |
+| Pitfall | Bad | Good |
+|---------|-----|------|
+| Hardcoded color | `bgcolor="#4CAF50"` | `bgcolor=PRIMARY` |
+| Old palette values in docs/code | Airbnb red references | current `theme_tokens.py` values |
+| Flat black sidebar | isolated custom panel | shared glass shell |
+| Icon-only mobile nav | unlabeled tabs | icon plus visible label |
+| Random spacing | mixed pixel values | 4px rhythm |
+| Decorative admin cards | mascot-heavy hero blocks | concise operational summaries |
 
 ---
 
 ## Design Review Checklist
 
-Before shipping any UI screen:
+Before shipping a screen:
 
-- [ ] Uses components from theme.py (no hardcoded colors)
-- [ ] Spacing is consistent (multiples of 4px)
-- [ ] Responsive on mobile (<600px) and desktop (>900px)
-- [ ] Color contrast ≥4.5:1 for all text
-- [ ] All buttons have clear labels (not icon-only)
-- [ ] Disabled states visually distinct
-- [ ] Empty states handled (not blank screens)
-- [ ] Error/success messages clear and actionable
-- [ ] Load times <2 seconds
-- [ ] No layout shifts or jank during interactions
-- [ ] Consistent with admin/expert/farmer design language
+- [ ] shared tokens/factories used instead of hardcoded palette values
+- [ ] spacing follows 4px rhythm
+- [ ] mobile and desktop shells both render cleanly
+- [ ] contrast remains readable on dark glass
+- [ ] empty, loading, success, and error states exist
+- [ ] button hierarchy is clear
+- [ ] admin/expert screens keep the operations-professional tone
+- [ ] bottom nav content still fits within two-line label constraints
 
 ---
 
 ## Design Resources
 
-- **Colors:** See Primary Palette section
-- **Icons:** Flet built-in icons (`ft.Icons.*`)
-- **Fonts:** System defaults (no custom fonts needed)
-- **Component examples:** See ui/theme.py
-- **Screen layouts:** See ui/components/{admin,user}/*.py
+- runtime facade: `webapp_system/src/ui/theme.py`
+- tokens: `webapp_system/src/ui/theme_tokens.py`
+- shells: `webapp_system/src/ui/theme_shells.py`
+- auth shell: `webapp_system/src/ui/theme_auth.py`
+- nav: `webapp_system/src/ui/theme_nav.py`
 
 ---
 
@@ -737,6 +539,6 @@ Before shipping any UI screen:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2026-04-15 | Initial design system (Phase 1) |
-| 1.1 | TBD | Dark mode (Phase 4) |
-| 2.0 | TBD | Redesign for mobile app (Phase 5) |
+| 1.0 | 2026-04-15 | Initial design system draft |
+| 1.1 | 2026-04-21 | Synced docs to current runtime palette, dark glass shell, auth surfaces, mobile nav, and split theme architecture |
+| 2.0 | TBD | Future mobile redesign if the shell architecture changes materially |

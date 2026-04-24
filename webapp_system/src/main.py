@@ -25,6 +25,8 @@ import dal
 def main(page: ft.Page):
     page.title = "Hệ thống giám sát bò AI"
     page.padding = 0
+    page.spacing = 0
+    page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.window.min_width = 360
     page.window.min_height = 640
     page.window.width = 393
@@ -51,7 +53,7 @@ def main(page: ft.Page):
             control = FarmerMainScreen(page, on_logout=logout_to_login)
 
         page.clean()
-        page.add(control)
+        page.add(ft.Container(expand=True, content=control))
         page.update()
 
     def show_forgot_password():

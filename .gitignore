@@ -128,3 +128,4 @@ kanban.cmd
 .github/
 guide/
 
+tool_fix_image.py
