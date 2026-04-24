@@ -1363,7 +1363,7 @@ class CowSkinPreprocessApp:
             content=ft.ExpansionTile(
                 initially_expanded=True,
                 tile_padding=ft.padding.only(left=0, right=4),
-                controls_padding=ft.padding.only(top=8),
+                controls_padding=ft.padding.only(top=12, bottom=8),
                 title=ft.Text(
                     "Thông số xử lý",
                     size=18,
@@ -1382,7 +1382,7 @@ class CowSkinPreprocessApp:
                     ),
                     self.enable_resize,
                     self.enable_resize_help,
-                    self.resize_mode,
+                    self.spaced_dropdown(self.resize_mode),
                     self.resize_mode_help,
                     self.target_size,
                     self.stride,
@@ -1392,7 +1392,7 @@ class CowSkinPreprocessApp:
                     self.white_balance,
                     self.clahe_clip,
                     self.clahe_tile,
-                    self.denoise_method,
+                    self.spaced_dropdown(self.denoise_method),
                     self.denoise_method_help,
                     self.bilateral_d,
                     self.bilateral_sigma_color,
@@ -1689,6 +1689,13 @@ class CowSkinPreprocessApp:
                     info,
                 ],
             ),
+        )
+
+    @staticmethod
+    def spaced_dropdown(control: ft.Control) -> ft.Control:
+        return ft.Container(
+            padding=ft.padding.only(top=14, bottom=14),
+            content=control,
         )
 
     def make_help_text(self, text: str) -> ft.Text:
