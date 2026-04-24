@@ -748,12 +748,12 @@ class CowSkinPreprocessApp:
         self.page.overlay.append(self.file_picker_batch_output)
 
         self.instant_switch = ft.Switch(
-            label="Apply tá»©c thÃ¬",
+            label="Apply tuc thi",
             value=True,
         )
 
         self.status_text = ft.Text(
-            value="Sáºµn sÃ ng.",
+            value="San sang.",
             size=12,
             color=ft.Colors.GREY_700,
         )
@@ -794,19 +794,19 @@ class CowSkinPreprocessApp:
         )
 
         self.original_info = ft.Text(
-            value="ChÆ°a má»Ÿ áº£nh.",
+            value="Chua mo anh.",
             size=12,
             color=ft.Colors.GREY_700,
         )
 
         self.processed_info = ft.Text(
-            value="ChÆ°a xá»­ lÃ½.",
+            value="Chua xu ly.",
             size=12,
             color=ft.Colors.GREY_700,
         )
 
         self.enable_resize = ft.Switch(
-            label="Resize + padding vuÃ´ng",
+            label="Resize + padding vuong",
             value=self.cfg.enable_resize,
             on_change=self.on_control_change,
         )
@@ -857,7 +857,7 @@ class CowSkinPreprocessApp:
         )
 
         self.gamma = self.make_slider(
-            label="Gamma | <1 sÃ¡ng hÆ¡n",
+            label="Gamma | <1 sang hon",
             min_value=0.5,
             max_value=1.8,
             value=self.cfg.gamma,
@@ -884,7 +884,7 @@ class CowSkinPreprocessApp:
         )
 
         self.clahe_clip = self.make_slider(
-            label="CLAHE Clip | 0 lÃ  táº¯t",
+            label="CLAHE Clip | 0 la tat",
             min_value=0.0,
             max_value=4.0,
             value=self.cfg.clahe_clip,
@@ -916,7 +916,7 @@ class CowSkinPreprocessApp:
         )
 
         self.bilateral_d = self.make_slider(
-            label="Bilateral d | nÃªn 3-7",
+            label="Bilateral d | nen 3-7",
             min_value=0,
             max_value=15,
             value=self.cfg.bilateral_d,
@@ -943,7 +943,7 @@ class CowSkinPreprocessApp:
         )
 
         self.nlmeans_h = self.make_slider(
-            label="NLMeans h | nÃªn 3-8",
+            label="NLMeans h | nen 3-8",
             min_value=0,
             max_value=20,
             value=self.cfg.nlmeans_h,
@@ -952,7 +952,7 @@ class CowSkinPreprocessApp:
         )
 
         self.nlmeans_h_color = self.make_slider(
-            label="NLMeans hColor | nÃªn 3-8",
+            label="NLMeans hColor | nen 3-8",
             min_value=0,
             max_value=20,
             value=self.cfg.nlmeans_h_color,
@@ -961,7 +961,7 @@ class CowSkinPreprocessApp:
         )
 
         self.sharpen_amount = self.make_slider(
-            label="Sharpen Amount | nÃªn 0.10-0.30",
+            label="Sharpen Amount | nen 0.10-0.30",
             min_value=0.0,
             max_value=1.0,
             value=self.cfg.sharpen_amount,
@@ -979,7 +979,7 @@ class CowSkinPreprocessApp:
         )
 
         self.saturation = self.make_slider(
-            label="Saturation | 1.0 giá»¯ nguyÃªn",
+            label="Saturation | 1.0 giu nguyen",
             min_value=0.5,
             max_value=1.5,
             value=self.cfg.saturation,
@@ -1000,7 +1000,7 @@ class CowSkinPreprocessApp:
             color_scheme_seed=ft.Colors.GREEN,
         )
 
-        # Flet 0.28.x: dÃ¹ng page.window.*, khÃ´ng dÃ¹ng page.window_width.
+        # Flet 0.28.x: dung page.window.*, khong dung page.window_width.
         try:
             self.page.window.width = 1450
             self.page.window.height = 900
@@ -1027,7 +1027,7 @@ class CowSkinPreprocessApp:
         )
 
         self.update_status(
-            "ÄÃ£ khá»Ÿi Ä‘á»™ng. Má»Ÿ áº£nh rá»“i chá»n Quick Setting hoáº·c chá»‰nh slider."
+            "Da khoi dong. Mo anh roi chon Quick Setting hoac chinh slider."
         )
 
     def build_header(self) -> ft.Control:
@@ -1071,7 +1071,6 @@ class CowSkinPreprocessApp:
                         expand=True,
                         spacing=8,
                         controls=[
-                            self.header_status_card,
                             ft.Text(
                                 "Cow Skin Lesion Preprocess Tool",
                                 size=24,
@@ -1084,6 +1083,7 @@ class CowSkinPreprocessApp:
                             ),
                         ],
                     ),
+                    self.header_status_card,
                     self.instant_switch,
                     ft.FilledButton(
                         text="Mo anh",
@@ -1137,7 +1137,7 @@ class CowSkinPreprocessApp:
                         ],
                     ),
                     ft.Text(
-                        "Báº¥m preset Ä‘á»ƒ thiáº¿t láº­p thÃ´ng sá»‘ tá»©c thÃ¬.",
+                        "Bam preset de thiet lap thong so tuc thi.",
                         size=12,
                         color=ft.Colors.GREY_700,
                     ),
@@ -1147,22 +1147,22 @@ class CowSkinPreprocessApp:
                         run_spacing=8,
                         controls=[
                             ft.FilledTonalButton(
-                                text="An toÃ n",
+                                text="An toan",
                                 icon=ft.Icons.CHECK_CIRCLE,
                                 on_click=lambda e: self.apply_preset("safe"),
                             ),
                             ft.FilledTonalButton(
-                                text="RÃµ hÆ¡n",
+                                text="Ro hon",
                                 icon=ft.Icons.AUTO_FIX_HIGH,
                                 on_click=lambda e: self.apply_preset("more_clear"),
                             ),
                             ft.FilledTonalButton(
-                                text="áº¢nh tá»‘i",
+                                text="Anh toi",
                                 icon=ft.Icons.WB_SUNNY,
                                 on_click=lambda e: self.apply_preset("dark_image"),
                             ),
                             ft.FilledTonalButton(
-                                text="Nhiá»…u cao",
+                                text="Nhieu cao",
                                 icon=ft.Icons.GRAIN,
                                 on_click=lambda e: self.apply_preset("high_noise"),
                             ),
@@ -1188,7 +1188,7 @@ class CowSkinPreprocessApp:
                                 on_click=self.copy_config,
                             ),
                             ft.OutlinedButton(
-                                text="LÆ°u config",
+                                text="Luu config",
                                 icon=ft.Icons.DOWNLOAD,
                                 expand=True,
                                 on_click=self.save_config_json,
@@ -2075,7 +2075,7 @@ class CowSkinPreprocessApp:
 
         self.update_preview()
 
-        self.update_status(f"ÄÃ£ Ã¡p dá»¥ng Quick Setting: {key}")
+        self.update_status(f"Da ap dung Quick Setting: {key}")
 
     def open_image_dialog(self, e):
         self.file_picker_open.pick_files(
@@ -2167,7 +2167,7 @@ class CowSkinPreprocessApp:
 
     def open_save_dialog(self, e):
         if self.processed_img is None:
-            self.show_snack("ChÆ°a cÃ³ áº£nh processed Ä‘á»ƒ lÆ°u.")
+            self.show_snack("Chua co anh processed de luu.")
             return
 
         default_name = "processed_image.png"
@@ -2176,7 +2176,7 @@ class CowSkinPreprocessApp:
             default_name = f"{self.current_path.stem}_preprocessed.png"
 
         self.file_picker_save.save_file(
-            dialog_title="LÆ°u áº£nh processed",
+            dialog_title="Luu anh processed",
             file_name=default_name,
             allowed_extensions=[
                 "png",
@@ -2200,9 +2200,9 @@ class CowSkinPreprocessApp:
         ok = save_image(output_path, self.processed_img)
 
         if ok:
-            self.show_snack(f"ÄÃ£ lÆ°u áº£nh: {output_path}")
+            self.show_snack(f"Da luu anh: {output_path}")
         else:
-            self.show_snack("KhÃ´ng lÆ°u Ä‘Æ°á»£c áº£nh.")
+            self.show_snack("Khong luu duoc anh.")
 
     def on_batch_input_result(self, e: ft.FilePickerResultEvent):
         if not e.path:
@@ -2278,7 +2278,7 @@ class CowSkinPreprocessApp:
 
         self.page.set_clipboard(text)
 
-        self.show_snack("ÄÃ£ copy config JSON vÃ o clipboard.")
+        self.show_snack("Da copy config JSON vao clipboard.")
 
     def save_config_json(self, e):
         cfg = self.get_config_from_controls()
@@ -2294,7 +2294,7 @@ class CowSkinPreprocessApp:
             encoding="utf-8",
         )
 
-        self.show_snack(f"ÄÃ£ lÆ°u config táº¡i: {output_path}")
+        self.show_snack(f"Da luu config tai: {output_path}")
 
 
 def main(page: ft.Page):
