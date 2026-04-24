@@ -932,6 +932,10 @@ class CowSkinPreprocessApp:
             label="Tự lưu khi Next",
             value=True,
         )
+        self.review_skip_done = ft.Checkbox(
+            label="Bỏ qua ảnh đã có output hợp lệ",
+            value=True,
+        )
         self.review_save_button: Optional[ft.OutlinedButton] = None
         self.review_next_button: Optional[ft.FilledButton] = None
         self.review_prev_button: Optional[ft.IconButton] = None
@@ -1722,6 +1726,7 @@ class CowSkinPreprocessApp:
                                 on_click=self.scan_review_folder,
                             ),
                             self.review_auto_save,
+                            self.review_skip_done,
                         ],
                     ),
                 ],
@@ -2625,6 +2630,12 @@ class CowSkinPreprocessApp:
         except (OSError, ValueError):
             return False
 
+    def has_valid_review_output(self, src: Path) -> bool:
+        output_path = self.get_review_output_path(src)
+        if not output_path.exists() or output_path.stat().st_size <= 0:
+            return False
+        return read_image_bgr(output_path) is not None
+
     def scan_review_folder(self, e=None):
         if self.review_input_dir is None:
             self.show_snack("Hãy chọn folder nguồn trước.")
@@ -2638,10 +2649,15 @@ class CowSkinPreprocessApp:
             if src.suffix.lower() in SUPPORTED_EXTS
             and not self.is_inside_review_output(src)
         )
-        skipped_done = sum(1 for src in all_files if self.get_review_output_path(src).exists())
+        done_files = [src for src in all_files if self.has_valid_review_output(src)]
+        invalid_output = sum(
+            1 for src in all_files
+            if self.get_review_output_path(src).exists() and src not in done_files
+        )
+        skip_done = bool(self.review_skip_done.value) if self.review_skip_done is not None else True
         self.review_files = [
             src for src in all_files
-            if not self.get_review_output_path(src).exists()
+            if not skip_done or src not in done_files
         ]
         self.review_index = 0
         if not all_files:
@@ -2656,7 +2672,7 @@ class CowSkinPreprocessApp:
         if not self.review_files:
             self.review_status_text.value = (
                 f"Đã xử lý hết {len(all_files)} ảnh trong folder nguồn. "
-                f"Đã bỏ qua {skipped_done} ảnh có output."
+                f"Đã bỏ qua {len(done_files)} output hợp lệ."
             )
             self.set_review_buttons(False)
             self.refresh_page()
@@ -2664,7 +2680,7 @@ class CowSkinPreprocessApp:
             return
         self.review_status_text.value = (
             f"Tìm thấy {len(all_files)} ảnh | Chưa xử lý: {len(self.review_files)} | "
-            f"Đã có output: {skipped_done}"
+            f"Output hợp lệ: {len(done_files)} | Output lỗi/rỗng: {invalid_output}"
         )
         self.set_review_buttons(True)
         if self.show_review_details:
@@ -2768,7 +2784,7 @@ class CowSkinPreprocessApp:
             if not self.save_review_current(None):
                 return
             should_remove_current = True
-        elif self.current_path is not None and self.get_review_output_path(self.current_path).exists():
+        elif self.current_path is not None and self.has_valid_review_output(self.current_path):
             should_remove_current = True
 
         if should_remove_current and self.current_path in self.review_files:
