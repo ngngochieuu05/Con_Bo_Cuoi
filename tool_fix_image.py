@@ -278,6 +278,112 @@ PRESETS: dict[str, ProcessConfig] = {
         sharpen_radius=1.0,
         saturation=1.0,
     ),
+
+    "yolo_fast_640": ProcessConfig(
+        enable_resize=True,
+        target_size=640,
+        resize_mode="Letterbox",
+        stride=32,
+        pad_color=114,
+        gamma=1.0,
+        auto_contrast=0.4,
+        white_balance=0.10,
+        clahe_clip=0.8,
+        clahe_tile=8,
+        denoise_method="Bilateral",
+        bilateral_d=3,
+        bilateral_sigma_color=20,
+        bilateral_sigma_space=20,
+        nlmeans_h=4,
+        nlmeans_h_color=4,
+        sharpen_amount=0.12,
+        sharpen_radius=0.9,
+        saturation=1.0,
+    ),
+    "lesion_detail": ProcessConfig(
+        enable_resize=True,
+        target_size=1024,
+        resize_mode="Letterbox",
+        stride=32,
+        pad_color=114,
+        gamma=0.92,
+        auto_contrast=1.2,
+        white_balance=0.20,
+        clahe_clip=1.8,
+        clahe_tile=6,
+        denoise_method="Bilateral",
+        bilateral_d=5,
+        bilateral_sigma_color=28,
+        bilateral_sigma_space=28,
+        nlmeans_h=5,
+        nlmeans_h_color=5,
+        sharpen_amount=0.42,
+        sharpen_radius=1.1,
+        saturation=1.05,
+    ),
+    "restore_photo": ProcessConfig(
+        enable_resize=True,
+        target_size=1536,
+        resize_mode="Giữ tỷ lệ + phản chiếu",
+        stride=32,
+        pad_color=114,
+        gamma=0.96,
+        auto_contrast=0.8,
+        white_balance=0.30,
+        clahe_clip=1.3,
+        clahe_tile=8,
+        denoise_method="NLMeans",
+        bilateral_d=5,
+        bilateral_sigma_color=30,
+        bilateral_sigma_space=30,
+        nlmeans_h=4,
+        nlmeans_h_color=5,
+        sharpen_amount=0.28,
+        sharpen_radius=1.0,
+        saturation=1.08,
+    ),
+    "soft_natural": ProcessConfig(
+        enable_resize=True,
+        target_size=1024,
+        resize_mode="Giữ tỷ lệ + phản chiếu",
+        stride=32,
+        pad_color=114,
+        gamma=1.0,
+        auto_contrast=0.3,
+        white_balance=0.20,
+        clahe_clip=0.8,
+        clahe_tile=10,
+        denoise_method="Bilateral",
+        bilateral_d=5,
+        bilateral_sigma_color=22,
+        bilateral_sigma_space=22,
+        nlmeans_h=4,
+        nlmeans_h_color=4,
+        sharpen_amount=0.16,
+        sharpen_radius=1.0,
+        saturation=1.02,
+    ),
+    "paper_scan": ProcessConfig(
+        enable_resize=True,
+        target_size=1536,
+        resize_mode="Giữ tỷ lệ + trắng",
+        stride=32,
+        pad_color=255,
+        gamma=0.90,
+        auto_contrast=1.5,
+        white_balance=0.35,
+        clahe_clip=1.2,
+        clahe_tile=8,
+        denoise_method="Bilateral",
+        bilateral_d=3,
+        bilateral_sigma_color=18,
+        bilateral_sigma_space=18,
+        nlmeans_h=3,
+        nlmeans_h_color=3,
+        sharpen_amount=0.34,
+        sharpen_radius=0.9,
+        saturation=0.95,
+    ),
     "natural": ProcessConfig(
         enable_resize=False,
         target_size=1024,
@@ -289,7 +395,7 @@ PRESETS: dict[str, ProcessConfig] = {
         white_balance=0.0,
         clahe_clip=0.0,
         clahe_tile=8,
-        denoise_method="None",
+        denoise_method="Không",
         bilateral_d=0,
         bilateral_sigma_color=0,
         bilateral_sigma_space=0,
@@ -359,10 +465,10 @@ def resize_for_training(img: np.ndarray, cfg: ProcessConfig) -> np.ndarray:
     target_size = int(cfg.target_size)
     mode = str(cfg.resize_mode or "Letterbox")
 
-    if mode == "Stretch":
+    if mode in {"Stretch", "Kéo giãn"}:
         return cv2.resize(img, (target_size, target_size), interpolation=cv2.INTER_AREA)
 
-    if mode == "CenterCrop":
+    if mode in {"CenterCrop", "Cắt giữa"}:
         h, w = img.shape[:2]
         side = min(h, w)
         y1 = max(0, (h - side) // 2)
@@ -375,12 +481,26 @@ def resize_for_training(img: np.ndarray, cfg: ProcessConfig) -> np.ndarray:
         rounded_size = int(np.ceil(target_size / cfg.stride) * cfg.stride)
 
     pad = int(np.clip(cfg.pad_color, 0, 255))
-    return resize_keep_ratio_with_padding(
+    pad_color = (pad, pad, pad)
+    if mode == "Giữ tỷ lệ + đen":
+        pad_color = (0, 0, 0)
+    elif mode == "Giữ tỷ lệ + trắng":
+        pad_color = (255, 255, 255)
+
+    out = resize_keep_ratio_with_padding(
         img,
         target_size=rounded_size,
         enable_resize=True,
-        pad_color=(pad, pad, pad),
+        pad_color=pad_color,
     )
+
+    if mode != "Giữ tỷ lệ + phản chiếu":
+        return out
+
+    blurred = cv2.resize(img, (rounded_size, rounded_size), interpolation=cv2.INTER_AREA)
+    blurred = cv2.GaussianBlur(blurred, (0, 0), 18)
+    mask = np.all(out == pad_color, axis=2)
+    return np.where(mask[:, :, None], blurred, out).astype(np.uint8)
 
 
 def apply_auto_contrast(img: np.ndarray, clip_percent: float) -> np.ndarray:
@@ -748,12 +868,12 @@ class CowSkinPreprocessApp:
         self.page.overlay.append(self.file_picker_batch_output)
 
         self.instant_switch = ft.Switch(
-            label="Apply tuc thi",
+            label="Áp dụng tức thì",
             value=True,
         )
 
         self.status_text = ft.Text(
-            value="San sang.",
+            value="Sẵn sàng.",
             size=12,
             color=ft.Colors.GREY_700,
         )
@@ -794,19 +914,19 @@ class CowSkinPreprocessApp:
         )
 
         self.original_info = ft.Text(
-            value="Chua mo anh.",
+            value="Chưa mở ảnh.",
             size=12,
             color=ft.Colors.GREY_700,
         )
 
         self.processed_info = ft.Text(
-            value="Chua xu ly.",
+            value="Chưa xử lý.",
             size=12,
             color=ft.Colors.GREY_700,
         )
 
         self.enable_resize = ft.Switch(
-            label="Resize + padding vuong",
+            label="Resize + padding vuông",
             value=self.cfg.enable_resize,
             on_change=self.on_control_change,
         )
@@ -816,26 +936,31 @@ class CowSkinPreprocessApp:
         )
 
         self.resize_mode = ft.Dropdown(
-            label="Resize Mode",
+            label="Chế độ resize",
             value=self.cfg.resize_mode,
+            width=360,
+            text_size=14,
             options=[
                 ft.DropdownOption("Letterbox"),
-                ft.DropdownOption("Stretch"),
-                ft.DropdownOption("CenterCrop"),
+                ft.DropdownOption("Giữ tỷ lệ + phản chiếu"),
+                ft.DropdownOption("Giữ tỷ lệ + đen"),
+                ft.DropdownOption("Giữ tỷ lệ + trắng"),
+                ft.DropdownOption("Kéo giãn"),
+                ft.DropdownOption("Cắt giữa"),
             ],
             on_change=self.on_control_change,
         )
         self.resize_mode_help = self.make_help_text(
-            "Letterbox nhu Ultralytics/YOLO: giu ti le va them padding. Stretch co the meo anh. CenterCrop cat giua anh."
+            "Letterbox giữ tỷ lệ + padding chuẩn YOLO/Ultralytics. Phản chiếu giúp preview đỡ viền xám. Kéo giãn có thể làm méo ảnh."
         )
 
         self.target_size = self.make_slider(
-            label="Output size",
+            label="Kích thước đầu ra",
             min_value=512,
             max_value=1536,
             value=self.cfg.target_size,
             step=128,
-            help_text="Kich thuoc anh dau ra. Cang lon thi nhin to hon, nhung khong tao them chi tiet that; thu 640 neu anh goc qua mo.",
+            help_text="Kích thước ảnh đầu ra. Dùng 640 cho YOLO/RF, 1024-1536 cho khôi phục/preview.",
         )
 
         self.stride = self.make_slider(
@@ -848,7 +973,7 @@ class CowSkinPreprocessApp:
         )
 
         self.pad_color = self.make_slider(
-            label="Pad color | YOLO 114",
+            label="Màu padding | YOLO 114",
             min_value=0,
             max_value=255,
             value=self.cfg.pad_color,
@@ -857,75 +982,77 @@ class CowSkinPreprocessApp:
         )
 
         self.gamma = self.make_slider(
-            label="Gamma | <1 sang hon",
+            label="Gamma | <1 sáng hơn",
             min_value=0.5,
             max_value=1.8,
             value=self.cfg.gamma,
             step=0.05,
-            help_text="Dieu chinh do sang tong the. < 1 lam anh sang hon, > 1 lam anh toi hon. Nen chinh nhe de tranh bay chi tiet.",
+            help_text="Điều chỉnh độ sáng tổng thể. < 1 làm ảnh sáng hơn, > 1 làm ảnh tối hơn.",
         )
 
         self.auto_contrast = self.make_slider(
-            label="Auto contrast | percentile",
+            label="Tự cân tương phản",
             min_value=0.0,
             max_value=3.0,
             value=self.cfg.auto_contrast,
             step=0.1,
-            help_text="Keo lai kenh sang theo percentile nhu normalize nhe. Tang qua cao co the mat chi tiet sang/toi.",
+            help_text="Kéo lại kênh sáng theo percentile. Tăng quá cao có thể mất chi tiết sáng/tối.",
         )
 
         self.white_balance = self.make_slider(
-            label="White balance | gray-world",
+            label="Cân bằng trắng",
             min_value=0.0,
             max_value=1.0,
             value=self.cfg.white_balance,
             step=0.05,
-            help_text="Giam lech mau do anh chup ngoai chuong. Nen dung nhe de khong lam sai mau vet benh.",
+            help_text="Giảm lệch màu do ánh sáng chuồng/trời. Nên dùng nhẹ để không sai màu vết bệnh.",
         )
 
         self.clahe_clip = self.make_slider(
-            label="CLAHE Clip | 0 la tat",
+            label="CLAHE Clip | 0 là tắt",
             min_value=0.0,
             max_value=4.0,
             value=self.cfg.clahe_clip,
             step=0.1,
-            help_text="Tang tuong phan cuc bo de lo ro dom/vet. Qua cao se lam anh bi gat, noi hat va nhin gia.",
+            help_text="Tăng tương phản cục bộ để lộ rõ đốm/vết. Quá cao sẽ gắt, nổi hạt và nhìn giả.",
         )
 
         self.clahe_tile = self.make_slider(
-            label="CLAHE Tile",
+            label="Ô CLAHE",
             min_value=2,
             max_value=16,
             value=self.cfg.clahe_tile,
             step=1,
-            help_text="Kich thuoc o khi CLAHE chia anh. Tile nho tac dong manh hon, tile lon mem hon.",
+            help_text="Kích thước ô khi CLAHE chia ảnh. Ô nhỏ tác động mạnh hơn, ô lớn mềm hơn.",
         )
 
         self.denoise_method = ft.Dropdown(
-            label="Denoise Method",
+            label="Khử nhiễu",
             value=self.cfg.denoise_method,
+            width=360,
+            text_size=14,
             options=[
-                ft.DropdownOption("None"),
+                ft.DropdownOption("Không"),
                 ft.DropdownOption("Bilateral"),
                 ft.DropdownOption("NLMeans"),
             ],
             on_change=self.on_control_change,
         )
         self.denoise_method_help = self.make_help_text(
-            "None giu nguyen chi tiet. Bilateral giu bien tot, hop voi anh da. NLMeans khu nhieu manh hon nhung de lam mem anh."
+            "Không giữ nguyên chi tiết. Bilateral giữ biên tốt, hợp ảnh da. NLMeans khử nhiễu mạnh hơn nhưng dễ làm mềm ảnh."
         )
 
         self.bilateral_d = self.make_slider(
-            label="Bilateral d | nen 3-7",
+            label="Bilateral d | nên 3-7",
             min_value=0,
             max_value=15,
             value=self.cfg.bilateral_d,
             step=1,
-            help_text="Kich thuoc vung loc cua Bilateral. Tang len se lam min hon nhung de mat chi tiet nho.",
+            help_text="Kích thước vùng lọc Bilateral. Tăng lên sẽ mịn hơn nhưng dễ mất chi tiết nhỏ.",
         )
 
         self.bilateral_sigma_color = self.make_slider(
-            label="Bilateral sigmaColor",
+            label="Bilateral sigma màu",
             min_value=0,
             max_value=100,
             value=self.cfg.bilateral_sigma_color,
@@ -934,7 +1061,7 @@ class CowSkinPreprocessApp:
         )
 
         self.bilateral_sigma_space = self.make_slider(
-            label="Bilateral sigmaSpace",
+            label="Bilateral sigma vùng",
             min_value=0,
             max_value=100,
             value=self.cfg.bilateral_sigma_space,
@@ -943,7 +1070,7 @@ class CowSkinPreprocessApp:
         )
 
         self.nlmeans_h = self.make_slider(
-            label="NLMeans h | nen 3-8",
+            label="NLMeans h | nên 3-8",
             min_value=0,
             max_value=20,
             value=self.cfg.nlmeans_h,
@@ -952,7 +1079,7 @@ class CowSkinPreprocessApp:
         )
 
         self.nlmeans_h_color = self.make_slider(
-            label="NLMeans hColor | nen 3-8",
+            label="NLMeans hColor | nên 3-8",
             min_value=0,
             max_value=20,
             value=self.cfg.nlmeans_h_color,
@@ -961,7 +1088,7 @@ class CowSkinPreprocessApp:
         )
 
         self.sharpen_amount = self.make_slider(
-            label="Sharpen Amount | nen 0.10-0.30",
+            label="Sharpen Amount | nên 0.10-0.30",
             min_value=0.0,
             max_value=1.0,
             value=self.cfg.sharpen_amount,
@@ -970,7 +1097,7 @@ class CowSkinPreprocessApp:
         )
 
         self.sharpen_radius = self.make_slider(
-            label="Sharpen Radius",
+            label="Bán kính làm nét",
             min_value=0.3,
             max_value=3.0,
             value=self.cfg.sharpen_radius,
@@ -979,7 +1106,7 @@ class CowSkinPreprocessApp:
         )
 
         self.saturation = self.make_slider(
-            label="Saturation | 1.0 giu nguyen",
+            label="Độ bão hòa | 1.0 giữ nguyên",
             min_value=0.5,
             max_value=1.5,
             value=self.cfg.saturation,
@@ -1027,12 +1154,12 @@ class CowSkinPreprocessApp:
         )
 
         self.update_status(
-            "Da khoi dong. Mo anh roi chon Quick Setting hoac chinh slider."
+            "Đã khởi động. Mở ảnh rồi chọn Quick Setting hoặc chỉnh slider."
         )
 
     def build_header(self) -> ft.Control:
         self.save_image_button = ft.OutlinedButton(
-            text="Luu anh",
+            text="Lưu ảnh",
             icon=ft.Icons.SAVE,
             disabled=True,
             on_click=self.open_save_dialog,
@@ -1086,7 +1213,7 @@ class CowSkinPreprocessApp:
                     self.header_status_card,
                     self.instant_switch,
                     ft.FilledButton(
-                        text="Mo anh",
+                        text="Mở ảnh",
                         icon=ft.Icons.FOLDER_OPEN,
                         on_click=self.open_image_dialog,
                     ),
@@ -1137,7 +1264,7 @@ class CowSkinPreprocessApp:
                         ],
                     ),
                     ft.Text(
-                        "Bam preset de thiet lap thong so tuc thi.",
+                        "Bấm preset để thiết lập thông số tức thì.",
                         size=12,
                         color=ft.Colors.GREY_700,
                     ),
@@ -1147,22 +1274,22 @@ class CowSkinPreprocessApp:
                         run_spacing=8,
                         controls=[
                             ft.FilledTonalButton(
-                                text="An toan",
+                                text="An toàn",
                                 icon=ft.Icons.CHECK_CIRCLE,
                                 on_click=lambda e: self.apply_preset("safe"),
                             ),
                             ft.FilledTonalButton(
-                                text="Ro hon",
+                                text="Rõ hơn",
                                 icon=ft.Icons.AUTO_FIX_HIGH,
                                 on_click=lambda e: self.apply_preset("more_clear"),
                             ),
                             ft.FilledTonalButton(
-                                text="Anh toi",
+                                text="Ảnh tối",
                                 icon=ft.Icons.WB_SUNNY,
                                 on_click=lambda e: self.apply_preset("dark_image"),
                             ),
                             ft.FilledTonalButton(
-                                text="Nhieu cao",
+                                text="Nhiễu cao",
                                 icon=ft.Icons.GRAIN,
                                 on_click=lambda e: self.apply_preset("high_noise"),
                             ),
@@ -1170,6 +1297,31 @@ class CowSkinPreprocessApp:
                                 text="RF 640",
                                 icon=ft.Icons.CROP,
                                 on_click=lambda e: self.apply_preset("roboflow_640"),
+                            ),
+                            ft.FilledTonalButton(
+                                text="YOLO 640",
+                                icon=ft.Icons.SPEED,
+                                on_click=lambda e: self.apply_preset("yolo_fast_640"),
+                            ),
+                            ft.FilledTonalButton(
+                                text="Chi tiết da",
+                                icon=ft.Icons.TEXTURE,
+                                on_click=lambda e: self.apply_preset("lesion_detail"),
+                            ),
+                            ft.FilledTonalButton(
+                                text="Khôi phục HD",
+                                icon=ft.Icons.HIGH_QUALITY,
+                                on_click=lambda e: self.apply_preset("restore_photo"),
+                            ),
+                            ft.FilledTonalButton(
+                                text="Tự nhiên",
+                                icon=ft.Icons.TUNE,
+                                on_click=lambda e: self.apply_preset("soft_natural"),
+                            ),
+                            ft.FilledTonalButton(
+                                text="Ảnh tài liệu",
+                                icon=ft.Icons.DOCUMENT_SCANNER,
+                                on_click=lambda e: self.apply_preset("paper_scan"),
                             ),
                             ft.FilledTonalButton(
                                 text="Reset",
@@ -1188,7 +1340,7 @@ class CowSkinPreprocessApp:
                                 on_click=self.copy_config,
                             ),
                             ft.OutlinedButton(
-                                text="Luu config",
+                                text="Lưu config",
                                 icon=ft.Icons.DOWNLOAD,
                                 expand=True,
                                 on_click=self.save_config_json,
@@ -1213,7 +1365,7 @@ class CowSkinPreprocessApp:
                 tile_padding=ft.padding.only(left=0, right=4),
                 controls_padding=ft.padding.only(top=8),
                 title=ft.Text(
-                    "Thong so xu ly",
+                    "Thông số xử lý",
                     size=18,
                     weight=ft.FontWeight.BOLD,
                 ),
@@ -1224,7 +1376,7 @@ class CowSkinPreprocessApp:
                 ),
                 controls=[
                     ft.TextButton(
-                        text="Hien chu thich" if not self.show_param_help else "An chu thich",
+                        text="Hiện chú thích" if not self.show_param_help else "Ẩn chú thích",
                         icon=ft.Icons.HELP_OUTLINE,
                         on_click=self.toggle_param_help,
                     ),
@@ -1255,7 +1407,7 @@ class CowSkinPreprocessApp:
                         border_radius=12,
                         bgcolor=ft.Colors.AMBER_50,
                         content=ft.Text(
-                            "Meo: neu long bi gai hoac da nhin gia, giam CLAHE Clip va Sharpen Amount.",
+                            "Mẹo: nếu lông bị gai hoặc da nhìn giả, giảm CLAHE Clip và Sharpen Amount.",
                             size=12,
                             color=ft.Colors.BROWN_700,
                         ),
@@ -1386,7 +1538,7 @@ class CowSkinPreprocessApp:
 
     def build_workbench_tab(self) -> ft.Control:
         self.refresh_preview_button = ft.OutlinedButton(
-            text="Cap nhat preview",
+            text="Cập nhật preview",
             icon=ft.Icons.REFRESH,
             disabled=True,
             on_click=lambda e: self.update_preview(),
@@ -1411,12 +1563,12 @@ class CowSkinPreprocessApp:
                     expand=True,
                     controls=[
                         self.preview_card(
-                            title="Anh goc",
+                            title="Ảnh gốc",
                             image=self.original_preview,
                             info=self.original_info,
                         ),
                         self.preview_card(
-                            title="Anh processed",
+                            title="Ảnh đã xử lý",
                             image=self.processed_preview,
                             info=self.processed_info,
                         ),
@@ -1486,13 +1638,13 @@ class CowSkinPreprocessApp:
                         weight=ft.FontWeight.BOLD,
                     ),
                     ft.Text(
-                        'Nhan "Mo anh" de hien Preview Before / After.',
+                        'Nhan "Mở ảnh" de hien Preview Before / After.',
                         size=13,
                         color=ft.Colors.GREY_700,
                         text_align=ft.TextAlign.CENTER,
                     ),
                     ft.FilledButton(
-                        text="Mo anh",
+                        text="Mở ảnh",
                         icon=ft.Icons.FOLDER_OPEN,
                         on_click=self.open_image_dialog,
                     ),
@@ -1554,7 +1706,7 @@ class CowSkinPreprocessApp:
         self.show_param_help = not self.show_param_help
         for help_text in self.help_text_controls:
             help_text.visible = self.show_param_help
-        e.control.text = "An chu thich" if self.show_param_help else "Hien chu thich"
+        e.control.text = "Ẩn chú thích" if self.show_param_help else "Hiện chú thích"
         self.page.update()
 
     def make_slider(
@@ -2075,7 +2227,7 @@ class CowSkinPreprocessApp:
 
         self.update_preview()
 
-        self.update_status(f"Da ap dung Quick Setting: {key}")
+        self.update_status(f"Đã áp dụng Quick Setting: {key}")
 
     def open_image_dialog(self, e):
         self.file_picker_open.pick_files(
@@ -2159,7 +2311,7 @@ class CowSkinPreprocessApp:
         except Exception as exc:
             self.processed_img = None
             self.processed_preview.src_base64 = EMPTY_PREVIEW_BASE64
-            self.processed_info.value = "Chua xu ly."
+            self.processed_info.value = "Chưa xử lý."
             if self.save_image_button is not None:
                 self.save_image_button.disabled = True
             self.refresh_page()
@@ -2167,7 +2319,7 @@ class CowSkinPreprocessApp:
 
     def open_save_dialog(self, e):
         if self.processed_img is None:
-            self.show_snack("Chua co anh processed de luu.")
+            self.show_snack("Chưa có ảnh processed để lưu.")
             return
 
         default_name = "processed_image.png"
@@ -2176,7 +2328,7 @@ class CowSkinPreprocessApp:
             default_name = f"{self.current_path.stem}_preprocessed.png"
 
         self.file_picker_save.save_file(
-            dialog_title="Luu anh processed",
+            dialog_title="Lưu ảnh processed",
             file_name=default_name,
             allowed_extensions=[
                 "png",
@@ -2200,9 +2352,9 @@ class CowSkinPreprocessApp:
         ok = save_image(output_path, self.processed_img)
 
         if ok:
-            self.show_snack(f"Da luu anh: {output_path}")
+            self.show_snack(f"Đã lưu ảnh: {output_path}")
         else:
-            self.show_snack("Khong luu duoc anh.")
+            self.show_snack("Không lưu được ảnh.")
 
     def on_batch_input_result(self, e: ft.FilePickerResultEvent):
         if not e.path:
@@ -2278,7 +2430,7 @@ class CowSkinPreprocessApp:
 
         self.page.set_clipboard(text)
 
-        self.show_snack("Da copy config JSON vao clipboard.")
+        self.show_snack("Đã copy config JSON vào clipboard.")
 
     def save_config_json(self, e):
         cfg = self.get_config_from_controls()
@@ -2294,7 +2446,7 @@ class CowSkinPreprocessApp:
             encoding="utf-8",
         )
 
-        self.show_snack(f"Da luu config tai: {output_path}")
+        self.show_snack(f"Đã lưu config tại: {output_path}")
 
 
 def main(page: ft.Page):
