@@ -835,6 +835,10 @@ class CowSkinPreprocessApp:
 
         self.batch_input_dir: Optional[Path] = None
         self.batch_output_dir: Optional[Path] = None
+        self.review_input_dir: Optional[Path] = None
+        self.review_output_dir: Optional[Path] = None
+        self.review_files: list[Path] = []
+        self.review_index = 0
         self.batch_tasks: list[BatchTask] = []
         self.batch_task_lock = threading.Lock()
         self.next_batch_task_id = 1
@@ -862,10 +866,20 @@ class CowSkinPreprocessApp:
             on_result=self.on_batch_output_result,
         )
 
+        self.file_picker_review_input = ft.FilePicker(
+            on_result=self.on_review_input_result,
+        )
+
+        self.file_picker_review_output = ft.FilePicker(
+            on_result=self.on_review_output_result,
+        )
+
         self.page.overlay.append(self.file_picker_open)
         self.page.overlay.append(self.file_picker_save)
         self.page.overlay.append(self.file_picker_batch_input)
         self.page.overlay.append(self.file_picker_batch_output)
+        self.page.overlay.append(self.file_picker_review_input)
+        self.page.overlay.append(self.file_picker_review_output)
 
         self.instant_switch = ft.Switch(
             label="Áp dụng tức thì",
@@ -891,10 +905,32 @@ class CowSkinPreprocessApp:
         )
 
         self.batch_queue_text = ft.Text(
-            value="Chua co batch task.",
+            value="Chưa có batch task.",
             size=12,
             color=ft.Colors.GREY_700,
         )
+
+        self.review_input_text = ft.Text(
+            value="Nguồn: chưa chọn",
+            size=12,
+            color=ft.Colors.GREY_700,
+        )
+        self.review_output_text = ft.Text(
+            value="Đích: chưa chọn",
+            size=12,
+            color=ft.Colors.GREY_700,
+        )
+        self.review_status_text = ft.Text(
+            value="Chọn folder nguồn và folder đích để bắt đầu.",
+            size=12,
+            color=ft.Colors.GREY_700,
+        )
+        self.review_auto_save = ft.Switch(
+            label="Tự lưu khi Next",
+            value=True,
+        )
+        self.review_save_button: Optional[ft.OutlinedButton] = None
+        self.review_next_button: Optional[ft.FilledButton] = None
 
         self.batch_tasks_column = ft.Column(
             spacing=10,
@@ -908,6 +944,16 @@ class CowSkinPreprocessApp:
         )
 
         self.processed_preview = ft.Image(
+            src_base64=EMPTY_PREVIEW_BASE64,
+            fit=ft.ImageFit.CONTAIN,
+            expand=True,
+        )
+        self.review_original_preview = ft.Image(
+            src_base64=EMPTY_PREVIEW_BASE64,
+            fit=ft.ImageFit.CONTAIN,
+            expand=True,
+        )
+        self.review_processed_preview = ft.Image(
             src_base64=EMPTY_PREVIEW_BASE64,
             fit=ft.ImageFit.CONTAIN,
             expand=True,
@@ -1518,7 +1564,12 @@ class CowSkinPreprocessApp:
                     content=self.build_workbench_tab(),
                 ),
                 ft.Tab(
-                    text="Tien trinh",
+                    text="Duyệt folder",
+                    icon=ft.Icons.FOLDER_OPEN,
+                    content=self.build_review_tab(),
+                ),
+                ft.Tab(
+                    text="Tiến trình",
                     icon=ft.Icons.PENDING_ACTIONS,
                     content=self.build_processes_tab(),
                 ),
@@ -1581,6 +1632,110 @@ class CowSkinPreprocessApp:
             controls=[
                 self.preview_placeholder,
                 self.preview_workspace,
+            ],
+        )
+
+    def build_review_tab(self) -> ft.Control:
+        self.review_save_button = ft.OutlinedButton(
+            text="Lưu ảnh hiện tại",
+            icon=ft.Icons.SAVE,
+            disabled=True,
+            on_click=self.save_review_current,
+        )
+        self.review_next_button = ft.FilledButton(
+            text="Next ảnh chưa xử lý",
+            icon=ft.Icons.SKIP_NEXT,
+            disabled=True,
+            on_click=self.next_review_image,
+        )
+        return ft.Column(
+            expand=True,
+            scroll=ft.ScrollMode.AUTO,
+            spacing=12,
+            controls=[
+                ft.Container(
+                    padding=16,
+                    border_radius=16,
+                    bgcolor=ft.Colors.GREEN_50,
+                    content=ft.Column(
+                        spacing=8,
+                        controls=[
+                            ft.Row(
+                                controls=[
+                                    ft.Icon(ft.Icons.IMAGE_SEARCH, color=ft.Colors.GREEN_700),
+                                    ft.Text("Duyệt và xử lý từng ảnh", size=20, weight=ft.FontWeight.BOLD),
+                                ],
+                            ),
+                            ft.Text(
+                                "Chọn folder nguồn/đích, chỉnh cấu hình cho từng ảnh ở panel trái, rồi lưu hoặc Next.",
+                                size=12,
+                                color=ft.Colors.GREY_700,
+                            ),
+                        ],
+                    ),
+                ),
+                ft.Container(
+                    padding=16,
+                    border_radius=16,
+                    bgcolor=ft.Colors.WHITE,
+                    border=ft.border.all(1, ft.Colors.GREY_200),
+                    content=ft.Column(
+                        spacing=10,
+                        controls=[
+                            self.review_input_text,
+                            self.review_output_text,
+                            ft.Row(
+                                controls=[
+                                    ft.OutlinedButton(
+                                        text="Chọn folder nguồn",
+                                        icon=ft.Icons.FOLDER_OPEN,
+                                        expand=True,
+                                        on_click=lambda e: self.file_picker_review_input.get_directory_path(),
+                                    ),
+                                    ft.OutlinedButton(
+                                        text="Chọn folder đích",
+                                        icon=ft.Icons.CREATE_NEW_FOLDER,
+                                        expand=True,
+                                        on_click=lambda e: self.file_picker_review_output.get_directory_path(),
+                                    ),
+                                ],
+                            ),
+                            ft.Row(
+                                controls=[
+                                    ft.FilledButton(
+                                        text="Quét ảnh chưa xử lý",
+                                        icon=ft.Icons.SEARCH,
+                                        on_click=self.scan_review_folder,
+                                    ),
+                                    self.review_auto_save,
+                                ],
+                            ),
+                            ft.Divider(),
+                            self.review_status_text,
+                            ft.Row(
+                                controls=[
+                                    self.review_save_button,
+                                    self.review_next_button,
+                                ],
+                            ),
+                        ],
+                    ),
+                ),
+                ft.Row(
+                    expand=True,
+                    controls=[
+                        self.preview_card(
+                            title="Ảnh nguồn",
+                            image=self.review_original_preview,
+                            info=self.review_original_info,
+                        ),
+                        self.preview_card(
+                            title="Ảnh sau xử lý",
+                            image=self.review_processed_preview,
+                            info=self.review_processed_info,
+                        ),
+                    ],
+                ),
             ],
         )
 
@@ -2261,7 +2416,7 @@ class CowSkinPreprocessApp:
         img = read_image_bgr(file_path)
 
         if img is None:
-            self.show_snack("Khong doc duoc anh.")
+            self.show_snack("Không đọc được ảnh.")
             return
 
         self.current_path = file_path
@@ -2274,7 +2429,7 @@ class CowSkinPreprocessApp:
             f"{img.shape[1]} x {img.shape[0]}"
         )
         self.processed_preview.src_base64 = EMPTY_PREVIEW_BASE64
-        self.processed_info.value = "Dang tao preview..."
+        self.processed_info.value = "Đang tạo preview..."
 
         if self.header_status_card is not None:
             self.header_status_card.visible = True
@@ -2282,7 +2437,7 @@ class CowSkinPreprocessApp:
         self.set_preview_state(True)
         self.set_active_tab(0)
         self.update_preview()
-        self.update_status(f"Da mo anh: {file_path.name}")
+        self.update_status(f"Đã mở ảnh: {file_path.name}")
 
     def update_preview(self):
         if self.original_img is None:
@@ -2297,13 +2452,13 @@ class CowSkinPreprocessApp:
                 self.cfg,
             )
 
-            self.processed_preview.src_base64 = cv2_to_base64_png(
-                self.processed_img
-            )
+            processed_b64 = cv2_to_base64_png(self.processed_img)
+            self.processed_preview.src_base64 = processed_b64
+            self.review_processed_preview.src_base64 = processed_b64
 
             h, w = self.processed_img.shape[:2]
 
-            self.processed_info.value = (
+            info_text = (
                 f"Output {w} x {h} | "
                 f"{self.cfg.resize_mode} | "
                 f"AC {self.cfg.auto_contrast:.1f} | "
@@ -2311,6 +2466,8 @@ class CowSkinPreprocessApp:
                 f"Denoise {self.cfg.denoise_method} | "
                 f"Sharpen {self.cfg.sharpen_amount:.2f}"
             )
+            self.processed_info.value = info_text
+            self.review_processed_info.value = info_text
             if self.save_image_button is not None:
                 self.save_image_button.disabled = False
             self.set_preview_state(True)
@@ -2362,6 +2519,141 @@ class CowSkinPreprocessApp:
             self.show_snack(f"Đã lưu ảnh: {output_path}")
         else:
             self.show_snack("Không lưu được ảnh.")
+
+    def on_review_input_result(self, e: ft.FilePickerResultEvent):
+        if not e.path:
+            return
+        self.review_input_dir = Path(e.path)
+        self.review_input_text.value = f"Nguồn: {self.review_input_dir}"
+        self.update_status(f"Folder nguồn: {self.review_input_dir}")
+        self.refresh_page()
+
+    def on_review_output_result(self, e: ft.FilePickerResultEvent):
+        if not e.path:
+            return
+        self.review_output_dir = Path(e.path)
+        self.review_output_text.value = f"Đích: {self.review_output_dir}"
+        self.update_status(f"Folder đích: {self.review_output_dir}")
+        self.refresh_page()
+
+    def get_review_output_path(self, src: Path) -> Path:
+        if self.review_input_dir is None or self.review_output_dir is None:
+            return Path.cwd() / f"{src.stem}_preprocessed.png"
+        try:
+            rel = src.relative_to(self.review_input_dir)
+        except ValueError:
+            rel = Path(src.name)
+        return self.review_output_dir / rel.with_name(f"{rel.stem}_preprocessed.png")
+
+    def scan_review_folder(self, e=None):
+        if self.review_input_dir is None:
+            self.show_snack("Hãy chọn folder nguồn trước.")
+            return
+        if self.review_output_dir is None:
+            self.show_snack("Hãy chọn folder đích trước.")
+            return
+        self.review_output_dir.mkdir(parents=True, exist_ok=True)
+        all_files = sorted(
+            src for src in self.review_input_dir.rglob("*")
+            if src.suffix.lower() in SUPPORTED_EXTS
+        )
+        self.review_files = [
+            src for src in all_files
+            if not self.get_review_output_path(src).exists()
+        ]
+        self.review_index = 0
+        if not self.review_files:
+            self.review_status_text.value = "Không còn ảnh chưa xử lý trong folder nguồn."
+            self.set_review_buttons(False)
+            self.refresh_page()
+            self.show_snack("Không còn ảnh chưa xử lý.")
+            return
+        self.set_review_buttons(True)
+        self.load_review_current()
+
+    def set_review_buttons(self, enabled: bool):
+        if self.review_save_button is not None:
+            self.review_save_button.disabled = not enabled
+        if self.review_next_button is not None:
+            self.review_next_button.disabled = not enabled
+
+    def load_review_current(self):
+        if not self.review_files:
+            self.set_review_buttons(False)
+            return
+        self.review_index = min(self.review_index, len(self.review_files) - 1)
+        src = self.review_files[self.review_index]
+        img = read_image_bgr(src)
+        if img is None:
+            self.review_status_text.value = f"Không đọc được: {src.name}"
+            self.next_review_image(None, skip_save=True)
+            return
+        self.current_path = src
+        self.original_img = img
+        self.processed_img = None
+        preview_b64 = cv2_to_base64_png(img)
+        self.original_preview.src_base64 = preview_b64
+        self.review_original_preview.src_base64 = preview_b64
+        self.original_info.value = f"{src.name} | {img.shape[1]} x {img.shape[0]}"
+        self.review_original_info.value = self.original_info.value
+        self.processed_preview.src_base64 = EMPTY_PREVIEW_BASE64
+        self.review_processed_preview.src_base64 = EMPTY_PREVIEW_BASE64
+        self.processed_info.value = "Đang tạo preview..."
+        self.review_processed_info.value = "Đang tạo preview..."
+        self.review_status_text.value = (
+            f"Ảnh {self.review_index + 1}/{len(self.review_files)}: {src.name} | "
+            f"Lưu tới: {self.get_review_output_path(src).name}"
+        )
+        if self.header_status_card is not None:
+            self.header_status_card.visible = True
+        self.set_preview_state(True)
+        self.update_preview()
+        self.update_status(f"Đang duyệt: {src.name}")
+
+    def save_review_current(self, e=None) -> bool:
+        if self.current_path is None or self.original_img is None:
+            self.show_snack("Chưa có ảnh hiện tại để lưu.")
+            return False
+        if self.review_output_dir is None:
+            self.show_snack("Hãy chọn folder đích trước.")
+            return False
+        self.cfg = self.get_config_from_controls()
+        self.processed_img = preprocess_cv2(self.original_img, self.cfg)
+        output_path = self.get_review_output_path(self.current_path)
+        ok = save_image(output_path, self.processed_img)
+        if ok:
+            self.show_snack(f"Đã lưu: {output_path.name}")
+            return True
+        self.show_snack("Không lưu được ảnh hiện tại.")
+        return False
+
+    def next_review_image(self, e=None, skip_save: bool = False):
+        if not self.review_files:
+            self.scan_review_folder()
+            return
+
+        should_remove_current = False
+        if not skip_save and self.review_auto_save.value:
+            if not self.save_review_current(None):
+                return
+            should_remove_current = True
+        elif self.current_path is not None and self.get_review_output_path(self.current_path).exists():
+            should_remove_current = True
+
+        if should_remove_current and self.current_path in self.review_files:
+            self.review_files.pop(self.review_index)
+        elif not should_remove_current:
+            self.review_index += 1
+
+        if self.review_index >= len(self.review_files):
+            self.review_index = 0
+        if not self.review_files:
+            self.review_status_text.value = "Đã xử lý hết ảnh chưa lưu trong folder."
+            self.set_review_buttons(False)
+            self.refresh_page()
+            self.show_snack("Đã xử lý hết folder.")
+            return
+        self.load_review_current()
 
     def on_batch_input_result(self, e: ft.FilePickerResultEvent):
         if not e.path:
@@ -2415,7 +2707,7 @@ class CowSkinPreprocessApp:
         self.next_batch_task_id += 1
 
         self.add_batch_task(task)
-        self.set_active_tab(1)
+        self.set_active_tab(2)
         self.update_status(
             f"Da tao Task #{task.task_id} | {task.total_files} anh | preview van hoat dong doc lap."
         )
@@ -2463,4 +2755,5 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(target=main)
+
 
