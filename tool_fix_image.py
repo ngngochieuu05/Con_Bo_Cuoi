@@ -105,7 +105,7 @@ except ModuleNotFoundError as exc:
     ) from exc
 
 
-SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 EMPTY_PREVIEW_BASE64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
     "/w8AAgMBgJ/gX1cAAAAASUVORK5CYII="
@@ -802,7 +802,10 @@ def save_image(path: Path, img_bgr: np.ndarray) -> bool:
     if suffix == ".jpg":
         suffix = ".jpeg"
 
-    if suffix not in SUPPORTED_EXTS:
+    if suffix in {".tif", ".tiff"}:
+        suffix = ".png"
+        path = path.with_suffix(".png")
+    elif suffix not in SUPPORTED_EXTS:
         suffix = ".png"
         path = path.with_suffix(".png")
 
@@ -2613,6 +2616,15 @@ class CowSkinPreprocessApp:
             rel = Path(src.name)
         return self.review_output_dir / rel.with_name(f"{rel.stem}_preprocessed.png")
 
+    def is_inside_review_output(self, src: Path) -> bool:
+        if self.review_output_dir is None:
+            return False
+        try:
+            src.resolve().relative_to(self.review_output_dir.resolve())
+            return True
+        except (OSError, ValueError):
+            return False
+
     def scan_review_folder(self, e=None):
         if self.review_input_dir is None:
             self.show_snack("Hãy chọn folder nguồn trước.")
@@ -2624,18 +2636,36 @@ class CowSkinPreprocessApp:
         all_files = sorted(
             src for src in self.review_input_dir.rglob("*")
             if src.suffix.lower() in SUPPORTED_EXTS
+            and not self.is_inside_review_output(src)
         )
+        skipped_done = sum(1 for src in all_files if self.get_review_output_path(src).exists())
         self.review_files = [
             src for src in all_files
             if not self.get_review_output_path(src).exists()
         ]
         self.review_index = 0
+        if not all_files:
+            self.review_status_text.value = (
+                "Không tìm thấy ảnh trong folder nguồn. Hỗ trợ: "
+                f"{', '.join(sorted(SUPPORTED_EXTS))}"
+            )
+            self.set_review_buttons(False)
+            self.refresh_page()
+            self.show_snack("Không tìm thấy ảnh hợp lệ trong folder nguồn.")
+            return
         if not self.review_files:
-            self.review_status_text.value = "Không còn ảnh chưa xử lý trong folder nguồn."
+            self.review_status_text.value = (
+                f"Đã xử lý hết {len(all_files)} ảnh trong folder nguồn. "
+                f"Đã bỏ qua {skipped_done} ảnh có output."
+            )
             self.set_review_buttons(False)
             self.refresh_page()
             self.show_snack("Không còn ảnh chưa xử lý.")
             return
+        self.review_status_text.value = (
+            f"Tìm thấy {len(all_files)} ảnh | Chưa xử lý: {len(self.review_files)} | "
+            f"Đã có output: {skipped_done}"
+        )
         self.set_review_buttons(True)
         if self.show_review_details:
             self.toggle_review_details()
