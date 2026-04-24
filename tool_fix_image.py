@@ -1505,7 +1505,7 @@ class CowSkinPreprocessApp:
                         ],
                     ),
                     ft.Text(
-                        "Dung thong so hien tai de xu ly toan bo anh trong mot thu muc.",
+                        "Dùng thông số hiện tại để xử lý toàn bộ ảnh trong một thư mục.",
                         size=12,
                         color=ft.Colors.GREY_700,
                     ),
@@ -1576,7 +1576,7 @@ class CowSkinPreprocessApp:
             unselected_label_color=ft.Colors.GREY_700,
             tabs=[
                 ft.Tab(
-                    text="Xu ly anh",
+                    text="Xử lý ảnh",
                     icon=ft.Icons.IMAGE_OUTLINED,
                     content=self.build_workbench_tab(),
                 ),
@@ -1655,7 +1655,7 @@ class CowSkinPreprocessApp:
     def build_review_tab(self) -> ft.Control:
         self.review_prev_button = ft.IconButton(
             icon=ft.Icons.CHEVRON_LEFT,
-            icon_size=30,
+            icon_size=22,
             disabled=True,
             on_click=self.prev_review_image,
         )
@@ -1667,13 +1667,13 @@ class CowSkinPreprocessApp:
         )
         self.review_counter_text = ft.Text(
             value="0 / 0",
-            size=20,
+            size=16,
             weight=ft.FontWeight.W_500,
             text_align=ft.TextAlign.CENTER,
         )
         self.review_counter_next_button = ft.IconButton(
             icon=ft.Icons.CHEVRON_RIGHT,
-            icon_size=30,
+            icon_size=22,
             disabled=True,
             on_click=self.next_review_image,
         )
@@ -1762,9 +1762,9 @@ class CowSkinPreprocessApp:
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
                             ft.Container(
-                                width=340,
-                                padding=ft.padding.symmetric(horizontal=10, vertical=8),
-                                border_radius=40,
+                                width=230,
+                                padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                                border_radius=28,
                                 bgcolor=ft.Colors.GREY_50,
                                 border=ft.border.all(1, ft.Colors.GREY_200),
                                 content=ft.Row(
@@ -2174,12 +2174,12 @@ class CowSkinPreprocessApp:
             bgcolor=ft.Colors.GREEN_100,
         )
         task.pause_button = ft.OutlinedButton(
-            text="Dung",
+            text="Dừng",
             icon=ft.Icons.PAUSE_CIRCLE_OUTLINE,
             on_click=lambda e, task_id=task.task_id: self.pause_batch_task(task_id),
         )
         task.stop_button = ft.OutlinedButton(
-            text="Dung han",
+            text="Dừng hẳn",
             icon=ft.Icons.STOP_CIRCLE_OUTLINED,
             on_click=lambda e, task_id=task.task_id: self.stop_batch_task(task_id),
         )
@@ -2284,7 +2284,7 @@ class CowSkinPreprocessApp:
             task.pause_button.disabled = task.status not in {"Queued", "Running"}
         if task.stop_button is not None:
             task.stop_button.disabled = task.status not in {"Queued", "Running", "Paused"}
-            task.stop_button.text = "Dang dung han" if task.status == "Stopping" else "Dung han"
+            task.stop_button.text = "Đang dừng hẳn" if task.status == "Stopping" else "Dừng hẳn"
         if task.resume_button is not None:
             task.resume_button.disabled = task.status != "Paused"
         if task.delete_button is not None:
