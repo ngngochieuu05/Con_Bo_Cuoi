@@ -932,7 +932,7 @@ class CowSkinPreprocessApp:
         )
 
         self.enable_resize_help = self.make_help_text(
-            "Bat de dua anh ve kich thuoc vuong cho model. Neu anh goc nho, viec upscale se co the lam lo them."
+            "Bật để đưa ảnh về kích thước vuông cho model. Nếu ảnh gốc nhỏ, upscale có thể làm lộ nhòe."
         )
 
         self.resize_mode = ft.Dropdown(
@@ -969,7 +969,7 @@ class CowSkinPreprocessApp:
             max_value=64,
             value=self.cfg.stride,
             step=1,
-            help_text="Lam tron kich thuoc letterbox theo boi so stride. YOLO thuong dung 32; dat 1 de tat lam tron.",
+            help_text="Làm tròn kích thước letterbox theo bội số stride. YOLO thường dùng 32; đặt 1 để tắt làm tròn.",
         )
 
         self.pad_color = self.make_slider(
@@ -978,7 +978,7 @@ class CowSkinPreprocessApp:
             max_value=255,
             value=self.cfg.pad_color,
             step=1,
-            help_text="Mau nen padding khi letterbox. Ultralytics thuong dung xam 114 de model on dinh hon nen den/trang.",
+            help_text="Màu nền padding khi letterbox. Ultralytics thường dùng xám 114 để model ổn định hơn nền đen/trắng.",
         )
 
         self.gamma = self.make_slider(
@@ -1057,7 +1057,7 @@ class CowSkinPreprocessApp:
             max_value=100,
             value=self.cfg.bilateral_sigma_color,
             step=5,
-            help_text="Muc do tron theo khac biet mau. Cao hon se hoa tron cac diem/hat co mau gan nhau.",
+            help_text="Mức độ trộn theo khác biệt màu. Cao hơn sẽ hòa trộn các điểm/hạt có màu gần nhau.",
         )
 
         self.bilateral_sigma_space = self.make_slider(
@@ -1066,7 +1066,7 @@ class CowSkinPreprocessApp:
             max_value=100,
             value=self.cfg.bilateral_sigma_space,
             step=5,
-            help_text="Pham vi khong gian cua Bilateral. Cao hon se tac dong len vung rong hon quanh moi diem anh.",
+            help_text="Phạm vi không gian của Bilateral. Cao hơn sẽ tác động lên vùng rộng hơn quanh mỗi điểm ảnh.",
         )
 
         self.nlmeans_h = self.make_slider(
@@ -1075,7 +1075,7 @@ class CowSkinPreprocessApp:
             max_value=20,
             value=self.cfg.nlmeans_h,
             step=1,
-            help_text="Do manh khu nhieu cua NLMeans tren kenh sang. Cao qua se lam mat texture va nhin bet.",
+            help_text="Độ mạnh khử nhiễu của NLMeans trên kênh sáng. Cao quá sẽ làm mất texture và nhìn bẹt.",
         )
 
         self.nlmeans_h_color = self.make_slider(
@@ -1084,7 +1084,7 @@ class CowSkinPreprocessApp:
             max_value=20,
             value=self.cfg.nlmeans_h_color,
             step=1,
-            help_text="Do manh khu nhieu tren kenh mau. Tang cao de giam loang mau, nhung co the lam da bi be mat.",
+            help_text="Độ mạnh khử nhiễu trên kênh màu. Tăng cao để giảm loang màu, nhưng có thể làm da bị bẹt mặt.",
         )
 
         self.sharpen_amount = self.make_slider(
@@ -1093,7 +1093,7 @@ class CowSkinPreprocessApp:
             max_value=1.0,
             value=self.cfg.sharpen_amount,
             step=0.05,
-            help_text="Do manh lam ro bien va texture. Qua cao se tao vien trang/den va lam anh nhin gia.",
+            help_text="Độ mạnh làm rõ biên và texture. Quá cao sẽ tạo viền trắng/đen và làm ảnh nhìn giả.",
         )
 
         self.sharpen_radius = self.make_slider(
@@ -1102,7 +1102,7 @@ class CowSkinPreprocessApp:
             max_value=3.0,
             value=self.cfg.sharpen_radius,
             step=0.1,
-            help_text="Ban kinh blur dung trong sharpen. Radius nho danh vao chi tiet min, radius lon danh vao bien lon hon.",
+            help_text="Bán kính blur dùng trong sharpen. Radius nhỏ đánh vào chi tiết mịn, radius lớn đánh vào biên lớn hơn.",
         )
 
         self.saturation = self.make_slider(
@@ -1111,7 +1111,7 @@ class CowSkinPreprocessApp:
             max_value=1.5,
             value=self.cfg.saturation,
             step=0.05,
-            help_text="Do dam mau. De gan 1.0 cho anh phan tich; tang qua cao de lam mau sai va nhieu hon.",
+            help_text="Độ đậm màu. Để gần 1.0 cho ảnh phân tích; tăng quá cao dễ làm màu sai và nhiễu hơn.",
         )
 
     # -----------------------------------------------------
@@ -1370,7 +1370,7 @@ class CowSkinPreprocessApp:
                     weight=ft.FontWeight.BOLD,
                 ),
                 subtitle=ft.Text(
-                    "An/hien panel tham so de tap trung vao preview.",
+                    "Ẩn/hiện panel tham số để tập trung vào preview.",
                     size=12,
                     color=ft.Colors.GREY_700,
                 ),
