@@ -931,6 +931,12 @@ class CowSkinPreprocessApp:
         )
         self.review_save_button: Optional[ft.OutlinedButton] = None
         self.review_next_button: Optional[ft.FilledButton] = None
+        self.review_prev_button: Optional[ft.IconButton] = None
+        self.review_counter_next_button: Optional[ft.IconButton] = None
+        self.review_counter_text: Optional[ft.Text] = None
+        self.review_folder_details: Optional[ft.Control] = None
+        self.review_details_button: Optional[ft.TextButton] = None
+        self.show_review_details = True
 
         self.batch_tasks_column = ft.Column(
             spacing=10,
@@ -972,12 +978,12 @@ class CowSkinPreprocessApp:
         )
 
         self.review_original_info = ft.Text(
-            value="Ch?a ch?n ?nh.",
+            value="Chưa chọn ảnh.",
             size=12,
             color=ft.Colors.GREY_700,
         )
         self.review_processed_info = ft.Text(
-            value="Ch?a x? l?.",
+            value="Chưa xử lý.",
             size=12,
             color=ft.Colors.GREY_700,
         )
@@ -1647,17 +1653,76 @@ class CowSkinPreprocessApp:
         )
 
     def build_review_tab(self) -> ft.Control:
+        self.review_prev_button = ft.IconButton(
+            icon=ft.Icons.CHEVRON_LEFT,
+            icon_size=30,
+            disabled=True,
+            on_click=self.prev_review_image,
+        )
+        self.review_next_button = ft.FilledButton(
+            text="Next",
+            icon=ft.Icons.CHEVRON_RIGHT,
+            disabled=True,
+            on_click=self.next_review_image,
+        )
+        self.review_counter_text = ft.Text(
+            value="0 / 0",
+            size=20,
+            weight=ft.FontWeight.W_500,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.review_counter_next_button = ft.IconButton(
+            icon=ft.Icons.CHEVRON_RIGHT,
+            icon_size=30,
+            disabled=True,
+            on_click=self.next_review_image,
+        )
         self.review_save_button = ft.OutlinedButton(
-            text="Lưu ảnh hiện tại",
+            text="Lưu tay",
             icon=ft.Icons.SAVE,
             disabled=True,
             on_click=self.save_review_current,
         )
-        self.review_next_button = ft.FilledButton(
-            text="Next ảnh chưa xử lý",
-            icon=ft.Icons.SKIP_NEXT,
-            disabled=True,
-            on_click=self.next_review_image,
+        self.review_details_button = ft.TextButton(
+            text="Ẩn chi tiết nguồn/đích",
+            icon=ft.Icons.EXPAND_LESS,
+            on_click=self.toggle_review_details,
+        )
+        self.review_folder_details = ft.Container(
+            visible=self.show_review_details,
+            content=ft.Column(
+                spacing=10,
+                controls=[
+                    self.review_input_text,
+                    self.review_output_text,
+                    ft.Row(
+                        controls=[
+                            ft.OutlinedButton(
+                                text="Chọn folder nguồn",
+                                icon=ft.Icons.FOLDER_OPEN,
+                                expand=True,
+                                on_click=lambda e: self.file_picker_review_input.get_directory_path(),
+                            ),
+                            ft.OutlinedButton(
+                                text="Chọn folder đích",
+                                icon=ft.Icons.CREATE_NEW_FOLDER,
+                                expand=True,
+                                on_click=lambda e: self.file_picker_review_output.get_directory_path(),
+                            ),
+                        ],
+                    ),
+                    ft.Row(
+                        controls=[
+                            ft.FilledButton(
+                                text="Quét ảnh chưa xử lý",
+                                icon=ft.Icons.SEARCH,
+                                on_click=self.scan_review_folder,
+                            ),
+                            self.review_auto_save,
+                        ],
+                    ),
+                ],
+            ),
         )
         return ft.Column(
             expand=True,
@@ -1675,10 +1740,12 @@ class CowSkinPreprocessApp:
                                 controls=[
                                     ft.Icon(ft.Icons.IMAGE_SEARCH, color=ft.Colors.GREEN_700),
                                     ft.Text("Duyệt và xử lý từng ảnh", size=20, weight=ft.FontWeight.BOLD),
+                                    ft.Container(expand=True),
+                                    self.review_details_button,
                                 ],
                             ),
                             ft.Text(
-                                "Chọn folder nguồn/đích, chỉnh cấu hình cho từng ảnh ở panel trái, rồi lưu hoặc Next.",
+                                "Chỉnh cấu hình cho từng ảnh ở panel trái, rồi Lưu tay hoặc Next theo chế độ tự lưu.",
                                 size=12,
                                 color=ft.Colors.GREY_700,
                             ),
@@ -1687,48 +1754,38 @@ class CowSkinPreprocessApp:
                 ),
                 ft.Container(
                     padding=16,
-                    border_radius=16,
+                    border_radius=18,
                     bgcolor=ft.Colors.WHITE,
                     border=ft.border.all(1, ft.Colors.GREY_200),
                     content=ft.Column(
-                        spacing=10,
+                        spacing=12,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
-                            self.review_input_text,
-                            self.review_output_text,
-                            ft.Row(
-                                controls=[
-                                    ft.OutlinedButton(
-                                        text="Chọn folder nguồn",
-                                        icon=ft.Icons.FOLDER_OPEN,
-                                        expand=True,
-                                        on_click=lambda e: self.file_picker_review_input.get_directory_path(),
-                                    ),
-                                    ft.OutlinedButton(
-                                        text="Chọn folder đích",
-                                        icon=ft.Icons.CREATE_NEW_FOLDER,
-                                        expand=True,
-                                        on_click=lambda e: self.file_picker_review_output.get_directory_path(),
-                                    ),
-                                ],
+                            ft.Container(
+                                width=340,
+                                padding=ft.padding.symmetric(horizontal=10, vertical=8),
+                                border_radius=40,
+                                bgcolor=ft.Colors.GREY_50,
+                                border=ft.border.all(1, ft.Colors.GREY_200),
+                                content=ft.Row(
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                    controls=[
+                                        self.review_prev_button,
+                                        self.review_counter_text,
+                                        self.review_counter_next_button,
+                                    ],
+                                ),
                             ),
-                            ft.Row(
-                                controls=[
-                                    ft.FilledButton(
-                                        text="Quét ảnh chưa xử lý",
-                                        icon=ft.Icons.SEARCH,
-                                        on_click=self.scan_review_folder,
-                                    ),
-                                    self.review_auto_save,
-                                ],
-                            ),
-                            ft.Divider(),
                             self.review_status_text,
                             ft.Row(
+                                alignment=ft.MainAxisAlignment.CENTER,
                                 controls=[
                                     self.review_save_button,
                                     self.review_next_button,
                                 ],
                             ),
+                            self.review_folder_details,
                         ],
                     ),
                 ),
@@ -2580,6 +2637,8 @@ class CowSkinPreprocessApp:
             self.show_snack("Không còn ảnh chưa xử lý.")
             return
         self.set_review_buttons(True)
+        if self.show_review_details:
+            self.toggle_review_details()
         self.load_review_current()
 
     def set_review_buttons(self, enabled: bool):
@@ -2587,6 +2646,37 @@ class CowSkinPreprocessApp:
             self.review_save_button.disabled = not enabled
         if self.review_next_button is not None:
             self.review_next_button.disabled = not enabled
+        if self.review_prev_button is not None:
+            self.review_prev_button.disabled = not enabled
+        if self.review_counter_next_button is not None:
+            self.review_counter_next_button.disabled = not enabled
+        self.update_review_counter()
+
+    def update_review_counter(self):
+        if self.review_counter_text is None:
+            return
+        total = len(self.review_files)
+        current = 0 if total == 0 else self.review_index + 1
+        self.review_counter_text.value = f"{current} / {total}"
+
+    def toggle_review_details(self, e=None):
+        self.show_review_details = not self.show_review_details
+        if self.review_folder_details is not None:
+            self.review_folder_details.visible = self.show_review_details
+        if self.review_details_button is not None:
+            self.review_details_button.text = (
+                "Ẩn chi tiết nguồn/đích" if self.show_review_details else "Hiện chi tiết nguồn/đích"
+            )
+            self.review_details_button.icon = (
+                ft.Icons.EXPAND_LESS if self.show_review_details else ft.Icons.EXPAND_MORE
+            )
+        self.refresh_page()
+
+    def prev_review_image(self, e=None):
+        if not self.review_files:
+            return
+        self.review_index = (self.review_index - 1) % len(self.review_files)
+        self.load_review_current()
 
     def load_review_current(self):
         if not self.review_files:
