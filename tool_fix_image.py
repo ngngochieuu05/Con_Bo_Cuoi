@@ -6,6 +6,9 @@ import json
 import os
 import subprocess
 import sys
+import urllib.error
+import urllib.request
+import uuid
 import threading
 import time
 from dataclasses import dataclass, asdict
@@ -106,6 +109,63 @@ except ModuleNotFoundError as exc:
 
 
 SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
+
+GEMINI_RESTORATION_PROMPT = """Use the attached input image as the only source of truth.
+Restore and enhance the image according to this JSON specification.
+Preserve the original subject identity, anatomical structure, disease/lesion details, texture, and composition.
+Do not invent new objects, do not change the lesion meaning, do not remove medically relevant skin marks.
+Return only the restored image.
+
+{
+  "task_meta": {
+    "task_type": "photo_restoration",
+    "target_quality": "high_definition_8k",
+    "style_preset": "photo_realistic"
+  },
+  "restoration_requirements": {
+    "damage_repair": {
+      "actions": ["fill_scratches", "repair_tears", "fix_creases", "remove_dust_spots"],
+      "reconstruction_method": "context_aware_infilling",
+      "texture_goal": "realistic_material_matching"
+    },
+    "color_grading": {
+      "goal": "restore_natural_vibrancy",
+      "lighting": "balance_natural_illumination",
+      "tone": "correct_fading_and_discoloration"
+    }
+  },
+  "facial_enhancement": {
+    "priority": "identity_preservation",
+    "skin_texture": {
+      "description": "smooth_but_textured",
+      "details": "visible_pores_and_micro_details",
+      "avoid": ["plastic_look", "waxy_skin", "oversmoothing"]
+    },
+    "features": {
+      "eyes": "sharpen_and_clarify",
+      "structure": "enhance_natural_definition"
+    }
+  },
+  "post_processing": {"color": "auto_contrast"},
+  "upscale": {"enabled": true, "factor": 4, "model": "ESRGAN_4x"}
+}
+"""
+PRESET_LABELS: dict[str, str] = {
+    "safe": "An toàn",
+    "more_clear": "Rõ hơn",
+    "dark_image": "Ảnh tối",
+    "high_noise": "Nhiễu cao",
+    "roboflow_640": "RF 640",
+    "yolo_fast_640": "YOLO 640",
+    "lesion_detail": "Chi tiết da",
+    "restore_photo": "Khôi phục HD",
+    "soft_natural": "Tự nhiên",
+    "paper_scan": "Ảnh tài liệu",
+    "natural": "Reset",
+}
+
+
+
 EMPTY_PREVIEW_BASE64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
     "/w8AAgMBgJ/gX1cAAAAASUVORK5CYII="
@@ -152,6 +212,8 @@ class BatchTask:
     output_dir: Path
     cfg: ProcessConfig
     total_files: int
+    preset_key: str = "custom"
+    config_label: str = "Custom"
     processed_count: int = 0
     skipped_count: int = 0
     status: str = "Queued"
@@ -775,6 +837,93 @@ def cv2_to_base64_png(
     ).decode("utf-8")
 
 
+def cv2_to_png_bytes(img_bgr: np.ndarray) -> bytes:
+    ok, encoded = cv2.imencode(".png", img_bgr)
+    if not ok:
+        raise RuntimeError("Không mã hoá được ảnh PNG.")
+    return encoded.tobytes()
+
+
+def bytes_to_bgr_image(raw: bytes) -> Optional[np.ndarray]:
+    if not raw:
+        return None
+    array = np.frombuffer(raw, dtype=np.uint8)
+    return cv2.imdecode(array, cv2.IMREAD_COLOR)
+
+
+def format_gemini_http_error(code: int, detail: str) -> str:
+    message = detail.strip()
+    status = ""
+    try:
+        payload = json.loads(detail)
+        error = payload.get("error", {})
+        message = str(error.get("message") or message)
+        status = str(error.get("status") or "")
+    except json.JSONDecodeError:
+        pass
+
+    if code == 429 and status == "RESOURCE_EXHAUSTED":
+        return (
+            "Gemini API hết credit/quota billing (HTTP 429 RESOURCE_EXHAUSTED). "
+            "Vào AI Studio > Projects > Billing để nạp/thêm credit, hoặc tắt AI On và dùng xử lý local."
+        )
+    if code == 400:
+        return f"Gemini API từ chối request (HTTP 400): {message}"
+    if code == 401 or code == 403:
+        return f"Gemini API key không hợp lệ hoặc chưa có quyền (HTTP {code}): {message}"
+    if code == 404:
+        return f"Không tìm thấy Gemini model (HTTP 404). Kiểm tra tên model trong Setting: {message}"
+    if code >= 500:
+        return f"Gemini API đang lỗi phía server (HTTP {code}), thử lại sau: {message}"
+    return f"Gemini API lỗi HTTP {code}: {message}"
+
+
+def format_openai_http_error(code: int, detail: str) -> str:
+    message = detail.strip()
+    error_type = ""
+    try:
+        payload = json.loads(detail)
+        error = payload.get("error", {})
+        message = str(error.get("message") or message)
+        error_type = str(error.get("type") or error.get("code") or "")
+    except json.JSONDecodeError:
+        pass
+
+    if code == 429:
+        return f"OpenAI API hết quota/rate limit (HTTP 429). Kiểm tra billing/quota hoặc thử lại sau: {message}"
+    if code == 400:
+        return f"OpenAI API từ chối request (HTTP 400): {message}"
+    if code == 401 or code == 403:
+        return f"OpenAI API key không hợp lệ hoặc chưa có quyền (HTTP {code}): {message}"
+    if code == 404:
+        return f"Không tìm thấy OpenAI model/endpoint (HTTP 404). Kiểm tra tên model trong Setting: {message}"
+    if code >= 500:
+        return f"OpenAI API đang lỗi phía server (HTTP {code}), thử lại sau: {message}"
+    if error_type:
+        return f"OpenAI API lỗi HTTP {code} ({error_type}): {message}"
+    return f"OpenAI API lỗi HTTP {code}: {message}"
+
+
+def build_multipart_form_data(fields: dict[str, str], files: dict[str, tuple[str, str, bytes]]) -> tuple[bytes, str]:
+    boundary = f"----CowSkinAI{uuid.uuid4().hex}"
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+        chunks.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        chunks.append(str(value).encode("utf-8"))
+        chunks.append(b"\r\n")
+    for name, (filename, content_type, data) in files.items():
+        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+        chunks.append(
+            f'Content-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'.encode("utf-8")
+        )
+        chunks.append(f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"))
+        chunks.append(data)
+        chunks.append(b"\r\n")
+    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
 def read_image_bgr(path: Path) -> Optional[np.ndarray]:
     try:
         raw = path.read_bytes()
@@ -835,9 +984,16 @@ class CowSkinPreprocessApp:
         self.current_path: Optional[Path] = None
         self.original_img: Optional[np.ndarray] = None
         self.processed_img: Optional[np.ndarray] = None
+        self.active_preset_key = "safe"
+        self.ai_api_logs: list[str] = []
+        self.app_dir = Path(__file__).resolve().parent
+        self.ai_api_log_file = self.app_dir / "ai_api_calls.log"
+        self.gemini_request_in_flight = False
+        self.gemini_settings_file = self.app_dir / ".gemini_settings.json"
 
         self.batch_input_dir: Optional[Path] = None
         self.batch_output_dir: Optional[Path] = None
+        self.batch_output_manual = False
         self.review_input_dir: Optional[Path] = None
         self.review_output_dir: Optional[Path] = None
         self.review_files: list[Path] = []
@@ -848,10 +1004,16 @@ class CowSkinPreprocessApp:
         self.show_param_help = False
         self.help_text_controls: list[ft.Text] = []
         self.main_tabs: Optional[ft.Tabs] = None
+        self.preview_panel_body: Optional[ft.Container] = None
+        self.review_tab_content: Optional[ft.Control] = None
         self.preview_placeholder: Optional[ft.Control] = None
         self.preview_workspace: Optional[ft.Control] = None
         self.refresh_preview_button: Optional[ft.OutlinedButton] = None
         self.save_image_button: Optional[ft.OutlinedButton] = None
+        self.settings_button: Optional[ft.IconButton] = None
+        self.ai_status_badge: Optional[ft.Container] = None
+        self.ai_status_text: Optional[ft.Text] = None
+        self.batch_config_status_text: Optional[ft.Text] = None
 
         self.file_picker_open = ft.FilePicker(
             on_result=self.on_open_file_result,
@@ -889,6 +1051,55 @@ class CowSkinPreprocessApp:
             value=True,
         )
 
+        self.gemini_ai_switch = ft.Switch(
+            label="Dùng AI phục hồi ảnh",
+            value=False,
+        )
+        self.ai_provider_dropdown = ft.Dropdown(
+            label="Nhà cung cấp AI",
+            value="Gemini",
+            options=[
+                ft.DropdownOption("Gemini"),
+                ft.DropdownOption("OpenAI"),
+            ],
+            on_change=self.on_ai_setting_change,
+        )
+        self.gemini_api_key_field = ft.TextField(
+            label="Gemini API Key",
+            password=True,
+            can_reveal_password=True,
+            hint_text="Dán API key từ Google AI Studio",
+        )
+        self.gemini_model_field = ft.TextField(
+            label="Gemini image model",
+            value="gemini-2.5-flash-image",
+        )
+        self.openai_api_key_field = ft.TextField(
+            label="OpenAI API Key",
+            password=True,
+            can_reveal_password=True,
+            hint_text="Dán API key từ OpenAI Platform",
+        )
+        self.openai_model_field = ft.TextField(
+            label="OpenAI image model",
+            value="gpt-image-1",
+        )
+        self.gemini_prompt_field = ft.TextField(
+            label="Prompt phục hồi ảnh AI",
+            value=GEMINI_RESTORATION_PROMPT,
+            multiline=True,
+            min_lines=6,
+            max_lines=8,
+        )
+
+        self.ai_api_log_field = ft.TextField(
+            label="Log gọi API ảnh - Rõ hơn",
+            value="Chưa có log gọi AI.",
+            multiline=True,
+            min_lines=6,
+            max_lines=8,
+            read_only=True,
+        )
         self.status_text = ft.Text(
             value="Sẵn sàng.",
             size=12,
@@ -936,12 +1147,21 @@ class CowSkinPreprocessApp:
             label="Bỏ qua ảnh đã có output hợp lệ",
             value=True,
         )
+        self.review_scan_button: Optional[ft.FilledButton] = None
         self.review_save_button: Optional[ft.OutlinedButton] = None
         self.review_next_button: Optional[ft.FilledButton] = None
         self.review_prev_button: Optional[ft.IconButton] = None
         self.review_counter_next_button: Optional[ft.IconButton] = None
         self.review_counter_text: Optional[ft.Text] = None
+        self.review_toolbar_counter_text: Optional[ft.Text] = None
+        self.review_project_text: Optional[ft.Text] = None
+        self.review_toolbar_file_text: Optional[ft.Text] = None
+        self.review_more_button: Optional[ft.PopupMenuButton] = None
+        self.review_train_checkbox: Optional[ft.Checkbox] = None
+        self.review_valid_checkbox: Optional[ft.Checkbox] = None
+        self.review_test_checkbox: Optional[ft.Checkbox] = None
         self.review_folder_details: Optional[ft.Control] = None
+        self.review_intro_card: Optional[ft.Container] = None
         self.review_details_button: Optional[ft.TextButton] = None
         self.show_review_details = True
 
@@ -1188,6 +1408,53 @@ class CowSkinPreprocessApp:
     # UI setup
     # -----------------------------------------------------
 
+    def load_gemini_settings(self):
+        if not self.gemini_settings_file.exists():
+            return
+        try:
+            data = json.loads(self.gemini_settings_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return
+        self.gemini_ai_switch.value = bool(data.get("enabled", self.gemini_ai_switch.value))
+        self.ai_provider_dropdown.value = str(data.get("provider", self.ai_provider_dropdown.value or "Gemini"))
+        if self.ai_provider_dropdown.value not in {"Gemini", "OpenAI"}:
+            self.ai_provider_dropdown.value = "Gemini"
+        self.gemini_api_key_field.value = str(data.get("api_key", data.get("gemini_api_key", "")))
+        self.openai_api_key_field.value = str(data.get("openai_api_key", ""))
+        saved_model = str(data.get("model", data.get("gemini_model", self.gemini_model_field.value or "gemini-2.5-flash-image")))
+        if saved_model == "gemini-2.5-flash-image-preview":
+            saved_model = "gemini-2.5-flash-image"
+        self.gemini_model_field.value = saved_model
+        self.openai_model_field.value = str(data.get("openai_model", self.openai_model_field.value or "gpt-image-1"))
+        self.gemini_prompt_field.value = str(
+            data.get("prompt", self.gemini_prompt_field.value or GEMINI_RESTORATION_PROMPT)
+        )
+        self.update_ai_status_badge()
+
+    def save_gemini_settings(self):
+        data = {
+            "enabled": bool(self.gemini_ai_switch.value),
+            "provider": str(self.ai_provider_dropdown.value or "Gemini"),
+            "api_key": str(self.gemini_api_key_field.value or ""),
+            "gemini_api_key": str(self.gemini_api_key_field.value or ""),
+            "model": str(self.gemini_model_field.value or ""),
+            "gemini_model": str(self.gemini_model_field.value or ""),
+            "openai_api_key": str(self.openai_api_key_field.value or ""),
+            "openai_model": str(self.openai_model_field.value or ""),
+            "prompt": str(self.gemini_prompt_field.value or ""),
+        }
+        self.gemini_settings_file.parent.mkdir(parents=True, exist_ok=True)
+        self.gemini_settings_file.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        self.update_ai_status_badge()
+
+    def close_settings_dialog(self, dialog):
+        self.save_gemini_settings()
+        self.page.close(dialog)
+        self.show_snack("Đã lưu cấu hình Gemini.")
+
     def setup(self):
         self.page.title = "Cow Skin Lesion Preprocess Tool"
 
@@ -1205,6 +1472,8 @@ class CowSkinPreprocessApp:
             self.page.window.min_height = 720
         except Exception:
             pass
+
+        self.load_gemini_settings()
 
         self.page.add(
             ft.Column(
@@ -1234,6 +1503,21 @@ class CowSkinPreprocessApp:
             disabled=True,
             on_click=self.open_save_dialog,
         )
+        self.settings_button = ft.IconButton(
+            icon=ft.Icons.SETTINGS,
+            tooltip="Cài đặt",
+            icon_color=ft.Colors.GREEN_800,
+            on_click=self.open_settings_dialog,
+        )
+        self.ai_status_text = ft.Text("AI Off", size=12, weight=ft.FontWeight.BOLD)
+        self.ai_status_badge = ft.Container(
+            padding=ft.padding.symmetric(horizontal=12, vertical=8),
+            border_radius=999,
+            bgcolor=ft.Colors.GREY_200,
+            border=ft.border.all(1, ft.Colors.GREY_300),
+            content=self.ai_status_text,
+        )
+        self.update_ai_status_badge()
         self.header_status_card = ft.Container(
             visible=False,
             padding=ft.padding.symmetric(horizontal=12, vertical=8),
@@ -1244,7 +1528,7 @@ class CowSkinPreprocessApp:
                 spacing=2,
                 controls=[
                     ft.Text(
-                        "Trang thai",
+                        "Trạng thái",
                         size=11,
                         weight=ft.FontWeight.BOLD,
                         color=ft.Colors.GREEN_800,
@@ -1273,24 +1557,106 @@ class CowSkinPreprocessApp:
                                 size=24,
                                 weight=ft.FontWeight.BOLD,
                             ),
-                            ft.Text(
-                                "Flet desktop app xử lý ảnh da bò trước khi vẽ polygon instance segmentation trên Roboflow.",
-                                size=13,
-                                color=ft.Colors.GREY_700,
-                            ),
                         ],
                     ),
                     self.header_status_card,
-                    self.instant_switch,
                     ft.FilledButton(
                         text="Mở ảnh",
                         icon=ft.Icons.FOLDER_OPEN,
                         on_click=self.open_image_dialog,
                     ),
                     self.save_image_button,
+                    self.ai_status_badge,
+                    self.settings_button,
                 ],
             ),
         )
+
+    def open_settings_dialog(self, e=None):
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Cài đặt xử lý ảnh", size=22, weight=ft.FontWeight.BOLD),
+            content=ft.Container(
+                width=760,
+                height=620,
+                content=ft.Column(
+                    scroll=ft.ScrollMode.AUTO,
+                    spacing=14,
+                    controls=[
+                        ft.Container(
+                            padding=14,
+                            border_radius=14,
+                            bgcolor=ft.Colors.GREEN_50,
+                            border=ft.border.all(1, ft.Colors.GREEN_100),
+                            content=ft.Column(
+                                tight=True,
+                                spacing=8,
+                                controls=[
+                                    ft.Text("Cấu hình chung", size=16, weight=ft.FontWeight.BOLD),
+                                    self.instant_switch,
+                                    ft.Text(
+                                        "Bật để tự cập nhật preview khi thay đổi thanh trượt/preset.",
+                                        size=12,
+                                        color=ft.Colors.GREY_700,
+                                    ),
+                                ],
+                            ),
+                        ),
+                        ft.Container(
+                            padding=14,
+                            border_radius=14,
+                            bgcolor=ft.Colors.BLUE_50,
+                            border=ft.border.all(1, ft.Colors.BLUE_100),
+                            content=ft.Column(
+                                tight=True,
+                                spacing=12,
+                                controls=[
+                                    ft.Row(
+                                        controls=[
+                                            ft.Icon(ft.Icons.AUTO_FIX_HIGH, color=ft.Colors.BLUE_700),
+                                            ft.Text("Cấu hình AI phục hồi ảnh", size=16, weight=ft.FontWeight.BOLD),
+                                        ],
+                                    ),
+                                    self.gemini_ai_switch,
+                                    self.ai_provider_dropdown,
+                                    ft.Text("Gemini", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_800),
+                                    ft.Row(
+                                        controls=[
+                                            ft.Container(expand=True, content=self.gemini_api_key_field),
+                                            ft.Container(expand=True, content=self.gemini_model_field),
+                                        ],
+                                    ),
+                                    ft.Text("OpenAI / ChatGPT", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_800),
+                                    ft.Row(
+                                        controls=[
+                                            ft.Container(expand=True, content=self.openai_api_key_field),
+                                            ft.Container(expand=True, content=self.openai_model_field),
+                                        ],
+                                    ),
+                                    ft.Container(
+                                        height=220,
+                                        content=self.gemini_prompt_field,
+                                    ),
+                                    ft.Text(
+                                        "AI chỉ chạy với Quick Setting Rõ hơn. Chọn Gemini hoặc OpenAI, nhập API key tương ứng rồi Lưu cấu hình.",
+                                        size=12,
+                                        color=ft.Colors.GREY_700,
+                                    ),
+                                    self.ai_api_log_field,
+                                ],
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+            actions=[
+                ft.TextButton("Đóng", on_click=lambda event: self.close_settings_dialog(dialog)),
+                ft.FilledButton("Lưu cấu hình", on_click=lambda event: self.close_settings_dialog(dialog)),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            inset_padding=ft.padding.symmetric(horizontal=40, vertical=24),
+        )
+        self.page.open(dialog)
 
     def build_left_panel(self) -> ft.Control:
         return ft.Container(
@@ -1487,6 +1853,12 @@ class CowSkinPreprocessApp:
         )
 
     def build_batch_controls(self) -> ft.Control:
+        self.batch_config_status_text = ft.Text(
+            self.get_config_display_name(),
+            size=16,
+            weight=ft.FontWeight.BOLD,
+            color=ft.Colors.GREEN_900,
+        )
         return ft.Container(
             padding=12,
             border_radius=16,
@@ -1516,17 +1888,59 @@ class CowSkinPreprocessApp:
                         size=12,
                         color=ft.Colors.GREY_700,
                     ),
-                    ft.Container(
-                        padding=12,
-                        border_radius=12,
-                        bgcolor=ft.Colors.GREEN_50,
-                        content=ft.Column(
-                            spacing=6,
-                            controls=[
-                                self.batch_input_text,
-                                self.batch_output_text,
-                            ],
-                        ),
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            ft.Container(
+                                width=560,
+                                padding=12,
+                                border_radius=12,
+                                bgcolor=ft.Colors.GREEN_50,
+                                content=ft.Column(
+                                    spacing=6,
+                                    controls=[
+                                        self.batch_input_text,
+                                        self.batch_output_text,
+                                    ],
+                                ),
+                            ),
+                            ft.Column(
+                                width=140,
+                                spacing=8,
+                                controls=[
+                                    ft.OutlinedButton(
+                                        text="Mở nguồn",
+                                        icon=ft.Icons.FOLDER_OPEN,
+                                        on_click=self.open_batch_input_folder,
+                                    ),
+                                    ft.OutlinedButton(
+                                        text="Mở đích",
+                                        icon=ft.Icons.FOLDER_SPECIAL,
+                                        on_click=self.open_batch_output_folder,
+                                    ),
+                                ],
+                            ),
+                            ft.Container(
+                                width=300,
+                                padding=12,
+                                border_radius=12,
+                                bgcolor=ft.Colors.ORANGE_50,
+                                border=ft.border.all(1, ft.Colors.ORANGE_100),
+                                content=ft.Column(
+                                    spacing=4,
+                                    controls=[
+                                        ft.Text(
+                                            "Cấu hình đang dùng",
+                                            size=12,
+                                            weight=ft.FontWeight.BOLD,
+                                            color=ft.Colors.ORANGE_900,
+                                        ),
+                                        self.batch_config_status_text,
+                                    ],
+                                ),
+                            ),
+                        ],
                     ),
                     ft.Row(
                         controls=[
@@ -1583,12 +1997,12 @@ class CowSkinPreprocessApp:
             unselected_label_color=ft.Colors.GREY_700,
             tabs=[
                 ft.Tab(
-                    text="Xử lý ảnh",
+                    text="Preview Config",
                     icon=ft.Icons.IMAGE_OUTLINED,
                     content=self.build_workbench_tab(),
                 ),
                 ft.Tab(
-                    text="Duyệt folder",
+                    text="Xử lý ảnh",
                     icon=ft.Icons.FOLDER_OPEN,
                     content=self.build_review_tab(),
                 ),
@@ -1599,7 +2013,7 @@ class CowSkinPreprocessApp:
                 ),
             ],
         )
-        return ft.Container(
+        self.preview_panel_body = ft.Container(
             expand=True,
             padding=12,
             border_radius=18,
@@ -1610,6 +2024,7 @@ class CowSkinPreprocessApp:
             ),
             content=self.main_tabs,
         )
+        return self.preview_panel_body
 
     def build_workbench_tab(self) -> ft.Control:
         self.refresh_preview_button = ft.OutlinedButton(
@@ -1674,9 +2089,28 @@ class CowSkinPreprocessApp:
         )
         self.review_counter_text = ft.Text(
             value="0 / 0",
-            size=16,
-            weight=ft.FontWeight.W_500,
+            size=14,
+            weight=ft.FontWeight.W_600,
             text_align=ft.TextAlign.CENTER,
+        )
+        self.review_toolbar_counter_text = ft.Text(
+            value="0 / 0",
+            size=16,
+            weight=ft.FontWeight.W_600,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.review_project_text = ft.Text(
+            value="CHƯA CHỌN NGUỒN",
+            size=11,
+            color=ft.Colors.GREY_600,
+            weight=ft.FontWeight.W_600,
+        )
+        self.review_toolbar_file_text = ft.Text(
+            value="Chưa chọn ảnh",
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color=ft.Colors.GREY_800,
+            overflow=ft.TextOverflow.ELLIPSIS,
         )
         self.review_counter_next_button = ft.IconButton(
             icon=ft.Icons.CHEVRON_RIGHT,
@@ -1690,6 +2124,79 @@ class CowSkinPreprocessApp:
             disabled=True,
             on_click=self.save_review_current,
         )
+        self.review_train_checkbox = ft.Checkbox(
+            label="Train",
+            value=True,
+            data="train",
+            active_color=ft.Colors.RED_600,
+            check_color=ft.Colors.WHITE,
+            shape=ft.CircleBorder(),
+            visible=False,
+            label_style=ft.TextStyle(color=ft.Colors.RED_700, weight=ft.FontWeight.BOLD),
+            on_change=self.on_review_split_change,
+        )
+        self.review_valid_checkbox = ft.Checkbox(
+            label="Valid",
+            value=False,
+            data="valid",
+            active_color=ft.Colors.BLUE_600,
+            check_color=ft.Colors.WHITE,
+            shape=ft.CircleBorder(),
+            visible=False,
+            label_style=ft.TextStyle(color=ft.Colors.BLUE_700, weight=ft.FontWeight.BOLD),
+            on_change=self.on_review_split_change,
+        )
+        self.review_test_checkbox = ft.Checkbox(
+            label="Test",
+            value=False,
+            data="test",
+            active_color=ft.Colors.ORANGE_600,
+            check_color=ft.Colors.WHITE,
+            shape=ft.CircleBorder(),
+            visible=False,
+            label_style=ft.TextStyle(color=ft.Colors.ORANGE_700, weight=ft.FontWeight.BOLD),
+            on_change=self.on_review_split_change,
+        )
+        self.review_more_button = ft.PopupMenuButton(
+            icon=ft.Icons.MORE_HORIZ,
+            tooltip="Tác vụ ảnh",
+            disabled=True,
+            items=[
+                ft.PopupMenuItem(
+                    text="Copy image",
+                    icon=ft.Icons.CONTENT_COPY,
+                    on_click=self.copy_review_image,
+                ),
+                ft.PopupMenuItem(
+                    text="Save as image",
+                    icon=ft.Icons.SAVE_AS,
+                    on_click=self.open_save_dialog,
+                ),
+                ft.PopupMenuItem(),
+                ft.PopupMenuItem(
+                    text="Remove from Project",
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    on_click=self.remove_review_current,
+                ),
+            ],
+        )
+        self.review_scan_button = ft.FilledButton(
+            text="Quét ảnh chưa xử lý",
+            icon=ft.Icons.SEARCH,
+            disabled=True,
+            style=ft.ButtonStyle(
+                bgcolor={
+                    ft.ControlState.DEFAULT: ft.Colors.RED_600,
+                    ft.ControlState.HOVERED: ft.Colors.RED_700,
+                    ft.ControlState.DISABLED: ft.Colors.GREY_300,
+                },
+                color={
+                    ft.ControlState.DEFAULT: ft.Colors.WHITE,
+                    ft.ControlState.DISABLED: ft.Colors.GREY_600,
+                },
+            ),
+            on_click=self.scan_review_folder,
+        )
         self.review_details_button = ft.TextButton(
             text="Ẩn chi tiết nguồn/đích",
             icon=ft.Icons.EXPAND_LESS,
@@ -1697,11 +2204,26 @@ class CowSkinPreprocessApp:
         )
         self.review_folder_details = ft.Container(
             visible=self.show_review_details,
+            padding=ft.padding.symmetric(horizontal=14, vertical=12),
+            border_radius=14,
+            bgcolor=ft.Colors.BLUE_GREY_50,
+            border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
             content=ft.Column(
                 spacing=10,
                 controls=[
-                    self.review_input_text,
-                    self.review_output_text,
+                    ft.Container(
+                        padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                        border_radius=12,
+                        bgcolor=ft.Colors.WHITE,
+                        border=ft.border.all(1, ft.Colors.GREY_200),
+                        content=ft.Column(
+                            spacing=8,
+                            controls=[
+                                self.review_input_text,
+                                self.review_output_text,
+                            ],
+                        ),
+                    ),
                     ft.Row(
                         controls=[
                             ft.OutlinedButton(
@@ -1720,11 +2242,7 @@ class CowSkinPreprocessApp:
                     ),
                     ft.Row(
                         controls=[
-                            ft.FilledButton(
-                                text="Quét ảnh chưa xử lý",
-                                icon=ft.Icons.SEARCH,
-                                on_click=self.scan_review_folder,
-                            ),
+                            self.review_scan_button,
                             self.review_auto_save,
                             self.review_skip_done,
                         ],
@@ -1732,67 +2250,102 @@ class CowSkinPreprocessApp:
                 ],
             ),
         )
-        return ft.Column(
+        self.review_intro_card = ft.Container(
+            padding=16,
+            border_radius=16,
+            bgcolor=ft.Colors.GREEN_50,
+            content=ft.Column(
+                spacing=8,
+                controls=[
+                    ft.Row(
+                        controls=[
+                            ft.Icon(ft.Icons.IMAGE_SEARCH, color=ft.Colors.GREEN_700),
+                            ft.Text("Duyệt và xử lý từng ảnh", size=20, weight=ft.FontWeight.BOLD),
+                            ft.Container(expand=True),
+                            self.review_details_button,
+                        ],
+                    ),
+                    ft.Text(
+                        "Chỉnh cấu hình cho từng ảnh ở panel trái, rồi Lưu tay hoặc Next theo chế độ tự lưu.",
+                        size=12,
+                        color=ft.Colors.GREY_700,
+                    ),
+                ],
+            ),
+        )
+        self.review_tab_content = ft.Column(
             expand=True,
             scroll=ft.ScrollMode.AUTO,
             spacing=12,
             controls=[
+                self.review_intro_card,
                 ft.Container(
-                    padding=16,
-                    border_radius=16,
-                    bgcolor=ft.Colors.GREEN_50,
-                    content=ft.Column(
-                        spacing=8,
-                        controls=[
-                            ft.Row(
-                                controls=[
-                                    ft.Icon(ft.Icons.IMAGE_SEARCH, color=ft.Colors.GREEN_700),
-                                    ft.Text("Duyệt và xử lý từng ảnh", size=20, weight=ft.FontWeight.BOLD),
-                                    ft.Container(expand=True),
-                                    self.review_details_button,
-                                ],
-                            ),
-                            ft.Text(
-                                "Chỉnh cấu hình cho từng ảnh ở panel trái, rồi Lưu tay hoặc Next theo chế độ tự lưu.",
-                                size=12,
-                                color=ft.Colors.GREY_700,
-                            ),
-                        ],
-                    ),
-                ),
-                ft.Container(
-                    padding=16,
+                    padding=ft.padding.symmetric(horizontal=14, vertical=10),
                     border_radius=18,
                     bgcolor=ft.Colors.WHITE,
                     border=ft.border.all(1, ft.Colors.GREY_200),
                     content=ft.Column(
-                        spacing=12,
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=10,
                         controls=[
-                            ft.Container(
-                                width=230,
-                                padding=ft.padding.symmetric(horizontal=6, vertical=2),
-                                border_radius=28,
-                                bgcolor=ft.Colors.GREY_50,
-                                border=ft.border.all(1, ft.Colors.GREY_200),
-                                content=ft.Row(
-                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                                    controls=[
-                                        self.review_prev_button,
-                                        self.review_counter_text,
-                                        self.review_counter_next_button,
-                                    ],
-                                ),
-                            ),
-                            self.review_status_text,
                             ft.Row(
-                                alignment=ft.MainAxisAlignment.CENTER,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
                                 controls=[
-                                    self.review_save_button,
+                                    ft.IconButton(
+                                        icon=ft.Icons.ARROW_BACK,
+                                        tooltip="Quay lại thiết lập folder",
+                                        on_click=self.show_review_setup,
+                                    ),
+                                    ft.Column(
+                                        spacing=0,
+                                        expand=True,
+                                        controls=[
+                                            ft.Row(
+                                                spacing=6,
+                                                controls=[
+                                                    self.review_project_text,
+                                                    ft.Icon(ft.Icons.CHEVRON_RIGHT, size=14, color=ft.Colors.GREY_500),
+                                                    ft.Text("XỬ LÝ ẢNH", size=11, color=ft.Colors.GREEN_700, weight=ft.FontWeight.BOLD),
+                                                ],
+                                            ),
+                                            self.review_toolbar_file_text,
+                                        ],
+                                    ),
+                                    ft.Column(
+                                        spacing=2,
+                                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                        controls=[
+                                            ft.Container(
+                                                width=210,
+                                                padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                                                border_radius=28,
+                                                bgcolor=ft.Colors.GREY_50,
+                                                border=ft.border.all(1, ft.Colors.GREY_200),
+                                                content=ft.Row(
+                                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                                    controls=[
+                                                        self.review_prev_button,
+                                                        self.review_toolbar_counter_text,
+                                                        self.review_counter_next_button,
+                                                    ],
+                                                ),
+                                            ),
+                                            ft.Row(
+                                                spacing=4,
+                                                alignment=ft.MainAxisAlignment.CENTER,
+                                                controls=[
+                                                    self.review_train_checkbox,
+                                                    self.review_valid_checkbox,
+                                                    self.review_test_checkbox,
+                                                ],
+                                            ),
+                                        ],
+                                    ),
                                     self.review_next_button,
+                                    self.review_more_button,
                                 ],
                             ),
+                            self.review_status_text,
                             self.review_folder_details,
                         ],
                     ),
@@ -1814,6 +2367,7 @@ class CowSkinPreprocessApp:
                 ),
             ],
         )
+        return self.review_tab_content
 
     def build_processes_tab(self) -> ft.Control:
         return ft.Column(
@@ -1906,6 +2460,7 @@ class CowSkinPreprocessApp:
                         size=16,
                         weight=ft.FontWeight.BOLD,
                     ),
+                    info,
                     ft.Container(
                         expand=True,
                         alignment=ft.alignment.center,
@@ -1917,7 +2472,6 @@ class CowSkinPreprocessApp:
                         ),
                         content=image,
                     ),
-                    info,
                 ],
             ),
         )
@@ -2037,6 +2591,236 @@ class CowSkinPreprocessApp:
             step,
         )
 
+    def append_ai_api_log(self, message: str):
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        line = f"[{timestamp}] {message}"
+        print(line, flush=True)
+        self.ai_api_logs.append(line)
+        self.ai_api_logs = self.ai_api_logs[-120:]
+        if hasattr(self, "ai_api_log_field") and self.ai_api_log_field is not None:
+            self.ai_api_log_field.value = "\n".join(self.ai_api_logs[-40:])
+        try:
+            with self.ai_api_log_file.open("a", encoding="utf-8") as log_file:
+                log_file.write(line + "\n")
+        except OSError:
+            pass
+        try:
+            self.refresh_page()
+        except Exception:
+            pass
+
+    def get_ai_provider(self) -> str:
+        provider = str(self.ai_provider_dropdown.value or "Gemini")
+        return provider if provider in {"Gemini", "OpenAI"} else "Gemini"
+
+    def should_use_gemini_ai(self) -> bool:
+        provider = self.get_ai_provider()
+        api_key = self.gemini_api_key_field.value if provider == "Gemini" else self.openai_api_key_field.value
+        return bool(
+            self.active_preset_key == "more_clear"
+            and self.gemini_ai_switch.value
+            and str(api_key or "").strip()
+        )
+
+    def enhance_with_ai(self, img_bgr: np.ndarray) -> np.ndarray:
+        if self.get_ai_provider() == "OpenAI":
+            return self.enhance_with_openai(img_bgr)
+        return self.enhance_with_gemini(img_bgr)
+
+    def enhance_with_gemini(self, img_bgr: np.ndarray) -> np.ndarray:
+        if self.gemini_request_in_flight:
+            raise RuntimeError("Gemini đang xử lý request trước đó, vui lòng chờ hoàn tất.")
+        self.gemini_request_in_flight = True
+        start_time = time.perf_counter()
+        try:
+            api_key = str(self.gemini_api_key_field.value or "").strip()
+            model = str(self.gemini_model_field.value or "gemini-2.5-flash-image").strip()
+            prompt = str(self.gemini_prompt_field.value or GEMINI_RESTORATION_PROMPT).strip()
+            if not api_key:
+                raise RuntimeError("Chưa nhập Gemini API key.")
+            if not model:
+                raise RuntimeError("Chưa nhập Gemini image model.")
+            if not prompt:
+                raise RuntimeError("Chưa nhập prompt Gemini.")
+
+            h, w = img_bgr.shape[:2]
+            self.append_ai_api_log(
+                f"START Rõ hơn Gemini | model={model} | input={w}x{h} | prompt_chars={len(prompt)}"
+            )
+            image_bytes = cv2_to_png_bytes(img_bgr)
+            image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+            self.append_ai_api_log(
+                f"REQUEST image/png bytes={len(image_bytes)} | base64_chars={len(image_b64)} | api_key=***{api_key[-4:] if len(api_key) >= 4 else '****'}"
+            )
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt},
+                            {
+                                "inline_data": {
+                                    "mime_type": "image/png",
+                                    "data": image_b64,
+                                }
+                            },
+                        ]
+                    }
+                ],
+                "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
+            }
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            safe_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key=***"
+            self.append_ai_api_log(f"POST {safe_url}")
+            request = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                self.append_ai_api_log("WAITING Gemini response...")
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    raw_response = response.read()
+                    elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                    self.append_ai_api_log(
+                        f"RESPONSE HTTP {response.status} | bytes={len(raw_response)} | elapsed_ms={elapsed_ms}"
+                    )
+                    response_payload = json.loads(raw_response.decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="ignore")[:1000]
+                elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                friendly_error = format_gemini_http_error(exc.code, detail)
+                self.append_ai_api_log(f"ERROR HTTP {exc.code} | elapsed_ms={elapsed_ms} | detail={detail}")
+                self.append_ai_api_log(f"ERROR FRIENDLY | {friendly_error}")
+                raise RuntimeError(friendly_error) from exc
+            except urllib.error.URLError as exc:
+                elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                self.append_ai_api_log(f"ERROR NETWORK | elapsed_ms={elapsed_ms} | reason={exc.reason}")
+                raise RuntimeError(f"Không kết nối được Gemini API: {exc.reason}") from exc
+
+            candidates = response_payload.get("candidates", [])
+            self.append_ai_api_log(f"PARSE candidates={len(candidates)}")
+            for candidate in candidates:
+                content = candidate.get("content", {})
+                for part in content.get("parts", []):
+                    if "text" in part:
+                        self.append_ai_api_log(f"TEXT part={str(part.get('text', ''))[:240]}")
+                    inline_data = part.get("inline_data") or part.get("inlineData")
+                    if not inline_data:
+                        continue
+                    data = inline_data.get("data")
+                    if not data:
+                        continue
+                    result_bytes = base64.b64decode(data)
+                    self.append_ai_api_log(
+                        f"IMAGE part mime={inline_data.get('mime_type') or inline_data.get('mimeType')} | bytes={len(result_bytes)}"
+                    )
+                    result = bytes_to_bgr_image(result_bytes)
+                    if result is not None:
+                        out_h, out_w = result.shape[:2]
+                        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                        self.append_ai_api_log(f"DONE output={out_w}x{out_h} | elapsed_ms={elapsed_ms}")
+                        return result
+            finish_reason = candidates[0].get("finishReason") if candidates else "NO_CANDIDATES"
+            self.append_ai_api_log(f"ERROR Gemini không trả về ảnh kết quả | finish_reason={finish_reason}")
+            raise RuntimeError("Gemini không trả về ảnh kết quả.")
+        finally:
+            self.gemini_request_in_flight = False
+
+    def enhance_with_openai(self, img_bgr: np.ndarray) -> np.ndarray:
+        if self.gemini_request_in_flight:
+            raise RuntimeError("AI đang xử lý request trước đó, vui lòng chờ hoàn tất.")
+        self.gemini_request_in_flight = True
+        start_time = time.perf_counter()
+        try:
+            api_key = str(self.openai_api_key_field.value or "").strip()
+            model = str(self.openai_model_field.value or "gpt-image-1").strip()
+            prompt = str(self.gemini_prompt_field.value or GEMINI_RESTORATION_PROMPT).strip()
+            if not api_key:
+                raise RuntimeError("Chưa nhập OpenAI API key.")
+            if not model:
+                raise RuntimeError("Chưa nhập OpenAI image model.")
+            if not prompt:
+                raise RuntimeError("Chưa nhập prompt AI.")
+
+            h, w = img_bgr.shape[:2]
+            self.append_ai_api_log(
+                f"START Rõ hơn OpenAI | model={model} | input={w}x{h} | prompt_chars={len(prompt)}"
+            )
+            image_bytes = cv2_to_png_bytes(img_bgr)
+            self.append_ai_api_log(
+                f"REQUEST image/png bytes={len(image_bytes)} | api_key=***{api_key[-4:] if len(api_key) >= 4 else '****'}"
+            )
+            body, content_type = build_multipart_form_data(
+                fields={
+                    "model": model,
+                    "prompt": prompt,
+                },
+                files={
+                    "image": ("input.png", "image/png", image_bytes),
+                },
+            )
+            url = "https://api.openai.com/v1/images/edits"
+            self.append_ai_api_log("POST https://api.openai.com/v1/images/edits")
+            request = urllib.request.Request(
+                url,
+                data=body,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": content_type,
+                },
+                method="POST",
+            )
+            try:
+                self.append_ai_api_log("WAITING OpenAI response...")
+                with urllib.request.urlopen(request, timeout=180) as response:
+                    raw_response = response.read()
+                    elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                    self.append_ai_api_log(
+                        f"RESPONSE HTTP {response.status} | bytes={len(raw_response)} | elapsed_ms={elapsed_ms}"
+                    )
+                    response_payload = json.loads(raw_response.decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="ignore")[:1000]
+                elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                friendly_error = format_openai_http_error(exc.code, detail)
+                self.append_ai_api_log(f"ERROR HTTP {exc.code} | elapsed_ms={elapsed_ms} | detail={detail}")
+                self.append_ai_api_log(f"ERROR FRIENDLY | {friendly_error}")
+                raise RuntimeError(friendly_error) from exc
+            except urllib.error.URLError as exc:
+                elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                self.append_ai_api_log(f"ERROR NETWORK | elapsed_ms={elapsed_ms} | reason={exc.reason}")
+                raise RuntimeError(f"Không kết nối được OpenAI API: {exc.reason}") from exc
+
+            items = response_payload.get("data", [])
+            self.append_ai_api_log(f"PARSE OpenAI data={len(items)}")
+            for item in items:
+                image_b64 = item.get("b64_json")
+                if image_b64:
+                    result_bytes = base64.b64decode(image_b64)
+                    self.append_ai_api_log(f"IMAGE b64_json bytes={len(result_bytes)}")
+                    result = bytes_to_bgr_image(result_bytes)
+                    if result is not None:
+                        out_h, out_w = result.shape[:2]
+                        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                        self.append_ai_api_log(f"DONE output={out_w}x{out_h} | elapsed_ms={elapsed_ms}")
+                        return result
+                image_url = item.get("url")
+                if image_url:
+                    self.append_ai_api_log(f"IMAGE url={image_url[:180]}")
+                    with urllib.request.urlopen(image_url, timeout=180) as image_response:
+                        result_bytes = image_response.read()
+                    result = bytes_to_bgr_image(result_bytes)
+                    if result is not None:
+                        out_h, out_w = result.shape[:2]
+                        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                        self.append_ai_api_log(f"DONE output={out_w}x{out_h} | elapsed_ms={elapsed_ms}")
+                        return result
+            self.append_ai_api_log("ERROR OpenAI không trả về ảnh kết quả")
+            raise RuntimeError("OpenAI không trả về ảnh kết quả.")
+        finally:
+            self.gemini_request_in_flight = False
+
     def get_config_from_controls(self) -> ProcessConfig:
         return ProcessConfig(
             enable_resize=bool(self.enable_resize.value),
@@ -2088,6 +2872,83 @@ class CowSkinPreprocessApp:
 
         self.page.update()
 
+    def update_ai_status_badge(self):
+        if self.ai_status_badge is None or self.ai_status_text is None:
+            return
+        is_on = bool(self.gemini_ai_switch.value and self.active_preset_key == "more_clear")
+        provider = self.get_ai_provider()
+        self.ai_status_text.value = f"AI On - {provider}" if is_on else "AI Off"
+        self.ai_status_text.color = ft.Colors.WHITE if is_on else ft.Colors.GREY_700
+        self.ai_status_badge.bgcolor = ft.Colors.BLUE_700 if is_on else ft.Colors.GREY_200
+        self.ai_status_badge.border = ft.border.all(
+            1,
+            ft.Colors.BLUE_800 if is_on else ft.Colors.GREY_300,
+        )
+
+    def on_ai_setting_change(self, e=None):
+        self.update_ai_status_badge()
+        self.refresh_page()
+
+    def get_config_display_name(self) -> str:
+        if self.active_preset_key == "custom":
+            return "Custom"
+        return PRESET_LABELS.get(self.active_preset_key, "Custom")
+
+    def update_config_status_display(self):
+        display_name = self.get_config_display_name()
+        if self.batch_config_status_text is not None:
+            self.batch_config_status_text.value = display_name
+
+    def set_batch_paths(self, input_dir: Path, output_dir: Path):
+        self.batch_input_dir = input_dir
+        self.batch_output_dir = output_dir
+        self.batch_input_text.value = f"Input: {self.batch_input_dir}"
+        self.batch_output_text.value = f"Output: {self.batch_output_dir}"
+
+    def get_default_batch_output_dir(self, input_dir: Path) -> Path:
+        return input_dir / "vdnc_pro"
+
+    def load_batch_task_into_form(self, task: BatchTask):
+        self.set_batch_paths(task.input_dir, task.output_dir)
+        self.batch_output_manual = True
+        self.active_preset_key = task.preset_key
+        self.cfg = ProcessConfig(**asdict(task.cfg))
+        self.apply_config_to_controls(self.cfg)
+        if self.batch_config_status_text is not None:
+            self.batch_config_status_text.value = task.config_label
+        self.update_ai_status_badge()
+        self.update_status(f"Đã nạp Task #{task.task_id} vào Batch xử lý thư mục.")
+        self.set_active_tab(2)
+
+    def select_batch_task(self, task_id: int):
+        task = self.find_batch_task(task_id)
+        if task is None:
+            return
+        self.load_batch_task_into_form(task)
+
+    def open_batch_folder(self, folder: Optional[Path], label: str):
+        if folder is None:
+            self.show_snack(f"Chưa chọn thư mục {label}.")
+            return
+        if not folder.exists():
+            self.show_snack(f"Thư mục {label} chưa tồn tại: {folder}")
+            return
+        try:
+            os.startfile(folder)
+        except Exception as exc:
+            self.show_snack(f"Không mở được thư mục {label}: {exc}")
+
+    def open_batch_input_folder(self, e=None):
+        self.open_batch_folder(self.batch_input_dir, "nguồn")
+
+    def open_batch_output_folder(self, e=None):
+        self.open_batch_folder(self.batch_output_dir, "đích")
+
+    def set_config_status(self):
+        display_name = self.get_config_display_name()
+        self.update_config_status_display()
+        self.update_status(f"Cấu hình xử lý: {display_name}")
+
     def update_status(self, text: str):
         self.status_text.value = text
         self.page.update()
@@ -2121,7 +2982,28 @@ class CowSkinPreprocessApp:
     def set_active_tab(self, index: int):
         if self.main_tabs is None:
             return
+        if self.preview_panel_body is not None and self.preview_panel_body.content is not self.main_tabs:
+            self.preview_panel_body.content = self.main_tabs
         self.main_tabs.selected_index = index
+        self.refresh_page()
+
+    def set_review_processing_mode(self, enabled: bool):
+        if self.preview_panel_body is None or self.main_tabs is None:
+            return
+        if self.review_intro_card is not None:
+            self.review_intro_card.visible = not enabled
+        for split_checkbox in (
+            self.review_train_checkbox,
+            self.review_valid_checkbox,
+            self.review_test_checkbox,
+        ):
+            if split_checkbox is not None:
+                split_checkbox.visible = enabled
+        if enabled:
+            self.preview_panel_body.content = self.review_tab_content or self.main_tabs
+        else:
+            self.preview_panel_body.content = self.main_tabs
+            self.main_tabs.selected_index = 1
         self.refresh_page()
 
     def find_batch_task(self, task_id: int) -> Optional[BatchTask]:
@@ -2178,8 +3060,8 @@ class CowSkinPreprocessApp:
         task.progress_bar = ft.ProgressBar(
             value=0 if task.total_files > 0 else None,
             bar_height=10,
-            color=ft.Colors.GREEN_700,
-            bgcolor=ft.Colors.GREEN_100,
+            color=ft.Colors.AMBER_700,
+            bgcolor=ft.Colors.AMBER_100,
         )
         task.pause_button = ft.OutlinedButton(
             text="Dừng",
@@ -2204,8 +3086,9 @@ class CowSkinPreprocessApp:
         task.card = ft.Container(
             padding=12,
             border_radius=14,
-            bgcolor=ft.Colors.GREEN_50,
-            border=ft.border.all(1, ft.Colors.GREEN_100),
+            bgcolor=ft.Colors.AMBER_50,
+            border=ft.border.all(1, ft.Colors.AMBER_100),
+            on_click=lambda e, task_id=task.task_id: self.select_batch_task(task_id),
             content=ft.Column(
                 spacing=8,
                 controls=[
@@ -2251,14 +3134,16 @@ class CowSkinPreprocessApp:
         else:
             task.progress_bar.value = None
 
-        status_color = ft.Colors.GREY_700
-        card_color = ft.Colors.GREEN_50
-        border_color = ft.Colors.GREEN_100
+        status_color = ft.Colors.AMBER_800
+        card_color = ft.Colors.AMBER_50
+        border_color = ft.Colors.AMBER_100
+        progress_color = ft.Colors.AMBER_700
+        progress_bgcolor = ft.Colors.AMBER_100
 
         if task.status == "Running":
-            status_color = ft.Colors.BLUE_700
-            card_color = ft.Colors.BLUE_50
-            border_color = ft.Colors.BLUE_100
+            status_color = ft.Colors.AMBER_800
+            card_color = ft.Colors.AMBER_50
+            border_color = ft.Colors.AMBER_100
         elif task.status == "Paused":
             status_color = ft.Colors.AMBER_800
             card_color = ft.Colors.AMBER_50
@@ -2269,13 +3154,21 @@ class CowSkinPreprocessApp:
             border_color = ft.Colors.RED_100
         elif task.status == "Done":
             status_color = ft.Colors.GREEN_700
+            card_color = ft.Colors.GREEN_50
+            border_color = ft.Colors.GREEN_100
+            progress_color = ft.Colors.GREEN_700
+            progress_bgcolor = ft.Colors.GREEN_100
         elif task.status in {"Error", "Cancelled"}:
             status_color = ft.Colors.RED_700
             card_color = ft.Colors.RED_50
             border_color = ft.Colors.RED_100
+            progress_color = ft.Colors.RED_700
+            progress_bgcolor = ft.Colors.RED_100
 
         task.status_text.value = task.status
         task.status_text.color = status_color
+        task.progress_bar.color = progress_color
+        task.progress_bar.bgcolor = progress_bgcolor
 
         if task.card is not None:
             task.card.bgcolor = card_color
@@ -2451,7 +3344,10 @@ class CowSkinPreprocessApp:
     # -----------------------------------------------------
 
     def on_control_change(self, e):
+        self.active_preset_key = "custom"
+        self.update_ai_status_badge()
         self.cfg = self.get_config_from_controls()
+        self.set_config_status()
 
         if self.instant_switch.value:
             self.update_preview()
@@ -2459,13 +3355,15 @@ class CowSkinPreprocessApp:
     def apply_preset(self, key: str):
         cfg = PRESETS[key]
 
+        self.active_preset_key = key
         self.cfg = ProcessConfig(**asdict(cfg))
 
         self.apply_config_to_controls(self.cfg)
+        self.update_ai_status_badge()
 
         self.update_preview()
 
-        self.update_status(f"Đã áp dụng Quick Setting: {key}")
+        self.set_config_status()
 
     def open_image_dialog(self, e):
         self.file_picker_open.pick_files(
@@ -2527,6 +3425,11 @@ class CowSkinPreprocessApp:
                 self.original_img,
                 self.cfg,
             )
+            ai_suffix = ""
+            if self.should_use_gemini_ai():
+                self.update_status(f"Đang phục hồi ảnh bằng {self.get_ai_provider()} AI...")
+                self.processed_img = self.enhance_with_ai(self.original_img)
+                ai_suffix = f" | {self.get_ai_provider()} AI"
 
             processed_b64 = cv2_to_base64_png(self.processed_img)
             self.processed_preview.src_base64 = processed_b64
@@ -2540,7 +3443,7 @@ class CowSkinPreprocessApp:
                 f"AC {self.cfg.auto_contrast:.1f} | "
                 f"CLAHE {self.cfg.clahe_clip:.1f} | "
                 f"Denoise {self.cfg.denoise_method} | "
-                f"Sharpen {self.cfg.sharpen_amount:.2f}"
+                f"Sharpen {self.cfg.sharpen_amount:.2f}{ai_suffix}"
             )
             self.processed_info.value = info_text
             self.review_processed_info.value = info_text
@@ -2596,12 +3499,22 @@ class CowSkinPreprocessApp:
         else:
             self.show_snack("Không lưu được ảnh.")
 
+    def update_review_scan_button(self):
+        if self.review_scan_button is None:
+            return
+        self.review_scan_button.disabled = not (
+            self.review_input_dir is not None and self.review_output_dir is not None
+        )
+
     def on_review_input_result(self, e: ft.FilePickerResultEvent):
         if not e.path:
             return
         self.review_input_dir = Path(e.path)
         self.review_input_text.value = f"Nguồn: {self.review_input_dir}"
         self.update_status(f"Folder nguồn: {self.review_input_dir}")
+        if self.review_project_text is not None:
+            self.review_project_text.value = self.review_input_dir.name.upper()
+        self.update_review_scan_button()
         self.refresh_page()
 
     def on_review_output_result(self, e: ft.FilePickerResultEvent):
@@ -2610,16 +3523,35 @@ class CowSkinPreprocessApp:
         self.review_output_dir = Path(e.path)
         self.review_output_text.value = f"Đích: {self.review_output_dir}"
         self.update_status(f"Folder đích: {self.review_output_dir}")
+        self.update_review_scan_button()
         self.refresh_page()
 
-    def get_review_output_path(self, src: Path) -> Path:
+    def get_review_split(self) -> str:
+        if self.review_valid_checkbox is not None and self.review_valid_checkbox.value:
+            return "valid"
+        if self.review_test_checkbox is not None and self.review_test_checkbox.value:
+            return "test"
+        return "train"
+
+    def get_review_output_path(self, src: Path, split: Optional[str] = None) -> Path:
         if self.review_input_dir is None or self.review_output_dir is None:
             return Path.cwd() / f"{src.stem}_preprocessed.png"
         try:
             rel = src.relative_to(self.review_input_dir)
         except ValueError:
             rel = Path(src.name)
-        return self.review_output_dir / rel.with_name(f"{rel.stem}_preprocessed.png")
+        output_split = split or self.get_review_split()
+        output_name = rel.with_name(f"{rel.stem}_preprocessed.png")
+        return self.review_output_dir / output_split / output_name
+
+    def get_review_output_paths(self, src: Path) -> list[Path]:
+        return [self.get_review_output_path(src, split) for split in ("train", "valid", "test")]
+
+    def get_valid_review_output_path(self, src: Path) -> Optional[Path]:
+        for output_path in self.get_review_output_paths(src):
+            if output_path.exists() and output_path.stat().st_size > 0 and read_image_bgr(output_path) is not None:
+                return output_path
+        return None
 
     def is_inside_review_output(self, src: Path) -> bool:
         if self.review_output_dir is None:
@@ -2631,10 +3563,7 @@ class CowSkinPreprocessApp:
             return False
 
     def has_valid_review_output(self, src: Path) -> bool:
-        output_path = self.get_review_output_path(src)
-        if not output_path.exists() or output_path.stat().st_size <= 0:
-            return False
-        return read_image_bgr(output_path) is not None
+        return self.get_valid_review_output_path(src) is not None
 
     def scan_review_folder(self, e=None):
         if self.review_input_dir is None:
@@ -2652,7 +3581,7 @@ class CowSkinPreprocessApp:
         done_files = [src for src in all_files if self.has_valid_review_output(src)]
         invalid_output = sum(
             1 for src in all_files
-            if self.get_review_output_path(src).exists() and src not in done_files
+            if any(output_path.exists() for output_path in self.get_review_output_paths(src)) and src not in done_files
         )
         skip_done = bool(self.review_skip_done.value) if self.review_skip_done is not None else True
         self.review_files = [
@@ -2682,6 +3611,7 @@ class CowSkinPreprocessApp:
             f"Tìm thấy {len(all_files)} ảnh | Chưa xử lý: {len(self.review_files)} | "
             f"Output hợp lệ: {len(done_files)} | Output lỗi/rỗng: {invalid_output}"
         )
+        self.set_review_processing_mode(True)
         self.set_review_buttons(True)
         if self.show_review_details:
             self.toggle_review_details()
@@ -2696,14 +3626,49 @@ class CowSkinPreprocessApp:
             self.review_prev_button.disabled = not enabled
         if self.review_counter_next_button is not None:
             self.review_counter_next_button.disabled = not enabled
+        if self.review_more_button is not None:
+            self.review_more_button.disabled = not enabled
+        for split_checkbox in (
+            self.review_train_checkbox,
+            self.review_valid_checkbox,
+            self.review_test_checkbox,
+        ):
+            if split_checkbox is not None:
+                split_checkbox.disabled = not enabled
         self.update_review_counter()
+
+    def on_review_split_change(self, e=None):
+        changed = getattr(e, "control", None)
+        if changed is None or not changed.value:
+            if not any(
+                checkbox is not None and checkbox.value
+                for checkbox in (
+                    self.review_train_checkbox,
+                    self.review_valid_checkbox,
+                    self.review_test_checkbox,
+                )
+            ) and self.review_train_checkbox is not None:
+                self.review_train_checkbox.value = True
+            self.refresh_page()
+            return
+        for split_checkbox in (
+            self.review_train_checkbox,
+            self.review_valid_checkbox,
+            self.review_test_checkbox,
+        ):
+            if split_checkbox is not None and split_checkbox is not changed:
+                split_checkbox.value = False
+        self.refresh_page()
 
     def update_review_counter(self):
         if self.review_counter_text is None:
             return
         total = len(self.review_files)
         current = 0 if total == 0 else self.review_index + 1
-        self.review_counter_text.value = f"{current} / {total}"
+        counter_value = f"{current} / {total}"
+        self.review_counter_text.value = counter_value
+        if self.review_toolbar_counter_text is not None:
+            self.review_toolbar_counter_text.value = counter_value
 
     def toggle_review_details(self, e=None):
         self.show_review_details = not self.show_review_details
@@ -2747,9 +3712,16 @@ class CowSkinPreprocessApp:
         self.review_processed_preview.src_base64 = EMPTY_PREVIEW_BASE64
         self.processed_info.value = "Đang tạo preview..."
         self.review_processed_info.value = "Đang tạo preview..."
+        output_path = self.get_review_output_path(src)
+        output_name = f"{output_path.parent.name}/{output_path.name}"
+        if self.review_project_text is not None:
+            source_name = self.review_input_dir.name if self.review_input_dir is not None else src.parent.name
+            self.review_project_text.value = source_name.upper()
+        if self.review_toolbar_file_text is not None:
+            self.review_toolbar_file_text.value = src.name
         self.review_status_text.value = (
             f"Ảnh {self.review_index + 1}/{len(self.review_files)}: {src.name} | "
-            f"Lưu tới: {self.get_review_output_path(src).name}"
+            f"Lưu tới: {output_name}"
         )
         if self.header_status_card is not None:
             self.header_status_card.visible = True
@@ -2766,13 +3738,53 @@ class CowSkinPreprocessApp:
             return False
         self.cfg = self.get_config_from_controls()
         self.processed_img = preprocess_cv2(self.original_img, self.cfg)
+        if self.should_use_gemini_ai():
+            self.update_status(f"Đang phục hồi ảnh bằng {self.get_ai_provider()} AI...")
+            self.processed_img = self.enhance_with_ai(self.original_img)
         output_path = self.get_review_output_path(self.current_path)
         ok = save_image(output_path, self.processed_img)
         if ok:
-            self.show_snack(f"Đã lưu: {output_path.name}")
+            self.show_snack(f"Đã lưu: {output_path.parent.name}/{output_path.name}")
             return True
         self.show_snack("Không lưu được ảnh hiện tại.")
         return False
+
+    def show_review_setup(self, e=None):
+        self.set_review_processing_mode(False)
+        if not self.show_review_details:
+            self.toggle_review_details()
+        else:
+            self.refresh_page()
+
+    def copy_review_image(self, e=None):
+        if self.current_path is None:
+            self.show_snack("Chưa có ảnh để copy.")
+            return
+        output_path = self.get_valid_review_output_path(self.current_path)
+        copy_path = output_path if output_path is not None else self.current_path
+        self.page.set_clipboard(str(copy_path))
+        self.show_snack(f"Đã copy đường dẫn ảnh: {copy_path.name}")
+
+    def remove_review_current(self, e=None):
+        if not self.review_files or self.current_path is None:
+            self.show_snack("Chưa có ảnh để xoá khỏi danh sách.")
+            return
+        removed_name = self.current_path.name
+        if self.current_path in self.review_files:
+            self.review_files.pop(self.review_index)
+        if self.review_index >= len(self.review_files):
+            self.review_index = 0
+        if not self.review_files:
+            self.current_path = None
+            self.review_status_text.value = "Đã xoá ảnh cuối cùng khỏi danh sách xử lý."
+            if self.review_toolbar_file_text is not None:
+                self.review_toolbar_file_text.value = "Không còn ảnh trong danh sách"
+            self.set_review_buttons(False)
+            self.refresh_page()
+            self.show_snack(f"Đã xoá khỏi Project: {removed_name}")
+            return
+        self.load_review_current()
+        self.show_snack(f"Đã xoá khỏi Project: {removed_name}")
 
     def next_review_image(self, e=None, skip_save: bool = False):
         if not self.review_files:
@@ -2807,7 +3819,10 @@ class CowSkinPreprocessApp:
             return
 
         self.batch_input_dir = Path(e.path)
-        self.batch_input_text.value = f"Input: {self.batch_input_dir}"
+        output_dir = self.batch_output_dir
+        if output_dir is None or not self.batch_output_manual:
+            output_dir = self.get_default_batch_output_dir(self.batch_input_dir)
+        self.set_batch_paths(self.batch_input_dir, output_dir)
 
         self.update_status(f"Batch input: {self.batch_input_dir}")
 
@@ -2816,6 +3831,7 @@ class CowSkinPreprocessApp:
             return
 
         self.batch_output_dir = Path(e.path)
+        self.batch_output_manual = True
         self.batch_output_text.value = f"Output: {self.batch_output_dir}"
 
         self.update_status(f"Batch output: {self.batch_output_dir}")
@@ -2850,6 +3866,8 @@ class CowSkinPreprocessApp:
             output_dir=output_dir,
             cfg=ProcessConfig(**asdict(cfg)),
             total_files=len(files),
+            preset_key=self.active_preset_key,
+            config_label=self.get_config_display_name(),
         )
         self.next_batch_task_id += 1
 
