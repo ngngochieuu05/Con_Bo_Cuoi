@@ -5,7 +5,76 @@
       "thoi_gian_duyet": "2026-04-09T16:00:00",
       "id_user": 2,
       "id_hinh_anh": 2
+    },
+    {
+      "id_lich_su": 2,
+      "thoi_gian_duyet": "2026-04-11T09:15:00",
+      "id_user": 1,
+      "id_hinh_anh": 3,
+      "action": "ai_scan",
+      "to_status": "AI_SCANNED"
+    },
+    {
+      "id_lich_su": 3,
+      "thoi_gian_duyet": "2026-04-11T11:30:00",
+      "id_user": 3,
+      "id_hinh_anh": 4,
+      "action": "link_case",
+      "to_status": "NEEDS_VERIFICATION"
+    },
+    {
+      "id_lich_su": 4,
+      "thoi_gian_duyet": "2026-04-12T08:10:00",
+      "id_user": 4,
+      "id_hinh_anh": 5,
+      "action": "request_more_data",
+      "to_status": "WAITING_MORE_DATA",
+      "reason": "Cần ảnh rõ hơn."
+    },
+    {
+      "id_lich_su": 5,
+      "thoi_gian_duyet": "2026-04-12T11:30:00",
+      "id_user": 2,
+      "id_hinh_anh": 6,
+      "action": "approve",
+      "to_status": "VERIFIED_DATASET",
+      "reason": "Đủ điều kiện đưa vào tập xác nhận."
+    },
+    {
+      "id_lich_su": 6,
+      "thoi_gian_duyet": "2026-04-12T14:00:00",
+      "id_user": 3,
+      "id_hinh_anh": 7,
+      "action": "reject",
+      "to_status": "REJECTED",
+      "reason": "Ảnh không hợp lệ."
+    },
+    {
+      "id_lich_su": 7,
+      "thoi_gian_duyet": "2026-04-13T09:50:00",
+      "id_user": 3,
+      "id_hinh_anh": 9,
+      "action": "ai_scan",
+      "to_status": "AI_SCANNED"
+    },
+    {
+      "id_lich_su": 8,
+      "thoi_gian_duyet": "2026-04-14T08:15:00",
+      "id_user": 2,
+      "id_hinh_anh": 11,
+      "action": "request_more_data",
+      "to_status": "WAITING_MORE_DATA",
+      "reason": "Bổ sung ảnh tai trái."
+    },
+    {
+      "id_lich_su": 9,
+      "thoi_gian_duyet": "2026-04-14T17:05:00",
+      "id_user": 1,
+      "id_hinh_anh": 12,
+      "action": "approve",
+      "to_status": "VERIFIED_DATASET",
+      "reason": "Đã xác nhận nhẹ."
     }
   ],
-  "next_id": 2
+  "next_id": 10
 }

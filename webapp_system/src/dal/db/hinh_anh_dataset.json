@@ -13,7 +13,113 @@
       "trang_thai": "CLEANED_DATA",
       "id_user": 2,
       "created_at": "2026-04-09T15:30:00"
+    },
+    {
+      "id_hinh_anh": 3,
+      "duong_dan": "data/dataset/img_003.jpg",
+      "trang_thai": "AI_SCANNED",
+      "id_user": 1,
+      "created_at": "2026-04-11T09:10:00",
+      "ai_primary_label": "mastitis",
+      "ai_confidence": 0.82,
+      "ai_summary": "mastitis 82%, swelling 61%",
+      "last_ai_scan_at": "2026-04-11T09:15:00"
+    },
+    {
+      "id_hinh_anh": 4,
+      "duong_dan": "data/dataset/img_004.jpg",
+      "trang_thai": "NEEDS_VERIFICATION",
+      "id_user": 3,
+      "created_at": "2026-04-11T11:20:00",
+      "ai_primary_label": "lameness",
+      "ai_confidence": 0.54,
+      "ai_summary": "lameness 54%",
+      "linked_case_id": 1004,
+      "linked_case_summary": "Ca bò đi khập khiễng sau khi phối giống"
+    },
+    {
+      "id_hinh_anh": 5,
+      "duong_dan": "data/dataset/img_005.jpg",
+      "trang_thai": "WAITING_MORE_DATA",
+      "id_user": 4,
+      "created_at": "2026-04-12T07:40:00",
+      "request_more_reason": "Cần ảnh góc nghiêng và cận vùng chân sau.",
+      "review_note": "Ảnh mờ, khó xác nhận tổn thương."
+    },
+    {
+      "id_hinh_anh": 6,
+      "duong_dan": "data/dataset/img_006.jpg",
+      "trang_thai": "VERIFIED_DATASET",
+      "id_user": 2,
+      "created_at": "2026-04-12T10:00:00",
+      "expert_label": "mụn cóc da",
+      "symptom_notes": "Tổn thương nhỏ, bờ rõ, chưa thấy viêm lan.",
+      "reviewed_by": 2,
+      "reviewed_at": "2026-04-12T11:30:00",
+      "reviewer_name": "Expert 02",
+      "verified_dataset": true
+    },
+    {
+      "id_hinh_anh": 7,
+      "duong_dan": "data/dataset/img_007.jpg",
+      "trang_thai": "REJECTED",
+      "id_user": 5,
+      "created_at": "2026-04-12T13:25:00",
+      "reject_reason": "Ảnh không chứa bò hoặc vùng bệnh cần xem xét.",
+      "reviewed_by": 3,
+      "reviewed_at": "2026-04-12T14:00:00",
+      "reviewer_name": "Expert 03"
+    },
+    {
+      "id_hinh_anh": 8,
+      "duong_dan": "data/dataset/img_008.jpg",
+      "trang_thai": "PENDING_REVIEW",
+      "id_user": 1,
+      "created_at": "2026-04-13T08:05:00",
+      "linked_case_id": 1008,
+      "linked_case_summary": "Ca nghi viêm móng ở bò sữa số 12"
+    },
+    {
+      "id_hinh_anh": 9,
+      "duong_dan": "data/dataset/img_009.jpg",
+      "trang_thai": "AI_SCANNED",
+      "id_user": 3,
+      "created_at": "2026-04-13T09:45:00",
+      "ai_primary_label": "skin_lesion",
+      "ai_confidence": 0.73,
+      "ai_summary": "skin_lesion 73%",
+      "last_ai_scan_at": "2026-04-13T09:50:00"
+    },
+    {
+      "id_hinh_anh": 10,
+      "duong_dan": "data/dataset/img_010.jpg",
+      "trang_thai": "PENDING_REVIEW",
+      "id_user": 4,
+      "created_at": "2026-04-13T15:15:00"
+    },
+    {
+      "id_hinh_anh": 11,
+      "duong_dan": "data/dataset/img_011.jpg",
+      "trang_thai": "WAITING_MORE_DATA",
+      "id_user": 2,
+      "created_at": "2026-04-14T07:55:00",
+      "request_more_reason": "Thiếu ảnh phần tai trái để đối chiếu.",
+      "linked_case_id": 1011,
+      "linked_case_summary": "Ca theo dõi sốt và biếng ăn ngày 14/04"
+    },
+    {
+      "id_hinh_anh": 12,
+      "duong_dan": "data/dataset/img_012.jpg",
+      "trang_thai": "VERIFIED_DATASET",
+      "id_user": 5,
+      "created_at": "2026-04-14T16:20:00",
+      "expert_label": "viêm da nhẹ",
+      "symptom_notes": "Mảng đỏ nhỏ, theo dõi thêm 48 giờ.",
+      "reviewed_by": 1,
+      "reviewed_at": "2026-04-14T17:05:00",
+      "reviewer_name": "Expert 01",
+      "verified_dataset": true
     }
   ],
-  "next_id": 3
+  "next_id": 13
 }

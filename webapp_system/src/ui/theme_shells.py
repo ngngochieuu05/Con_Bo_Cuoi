@@ -10,6 +10,7 @@ from .theme_tokens import PRIMARY
 def build_background(content: ft.Control):
     return ft.Stack(
         expand=True,
+        fit=ft.StackFit.EXPAND,
         controls=[
             ft.Container(
                 expand=True,
@@ -87,41 +88,15 @@ def build_role_shell(
             is_mobile = True
 
     if is_mobile:
-        header = ft.Container(
-            padding=ft.padding.only(left=16, right=16, top=14, bottom=12),
-            bgcolor=ft.Colors.with_opacity(0.62, "#182833"),
-            border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.10, "#F4F7FA"))),
-            content=ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=[
-                    ft.Column(
-                        spacing=1,
-                        tight=True,
-                        controls=[
-                            ft.Text(role_title, size=15, weight=ft.FontWeight.W_700),
-                            ft.Text(role_subtitle, size=10, color="#D2DEE6"),
-                        ],
-                    ),
-                    build_avatar_btn(page, on_profile),
-                ],
-            ),
-        )
         return build_background(
             ft.Stack(
                 expand=True,
+                fit=ft.StackFit.EXPAND,
                 controls=[
-                    ft.Column(
+                    ft.Container(
                         expand=True,
-                        spacing=0,
-                        controls=[
-                            header,
-                            ft.Container(
-                                expand=True,
-                                padding=ft.padding.only(left=10, right=10, top=10, bottom=96),
-                                content=glass_container(main_content, padding=16, radius=26),
-                            ),
-                        ],
+                        padding=ft.padding.only(left=10, right=10, top=6, bottom=96),
+                        content=glass_container(main_content, padding=16, radius=26, expand=True),
                     ),
                     build_glass_nav_bar(navigation_items, selected_key, on_select),
                 ],
@@ -130,9 +105,10 @@ def build_role_shell(
 
     sidebar_controls = [
         ft.Text(role_title, size=22, weight=ft.FontWeight.W_700),
-        ft.Text(role_subtitle, size=12, color="#D2DEE6"),
-        ft.Divider(color=ft.Colors.with_opacity(0.10, "#F4F7FA")),
     ]
+    if role_subtitle:
+        sidebar_controls.append(ft.Text(role_subtitle, size=12, color="#D2DEE6"))
+    sidebar_controls.append(ft.Divider(color=ft.Colors.with_opacity(0.10, "#F4F7FA")))
     for key, label, icon_name in navigation_items:
         icon = getattr(ft.Icons, icon_name, ft.Icons.CIRCLE)
         sidebar_controls.append(
@@ -176,12 +152,13 @@ def build_role_shell(
                                 ft.Column(expand=True, spacing=10, controls=sidebar_controls),
                                 padding=20,
                                 radius=26,
+                                expand=True,
                             ),
                         ),
                         ft.Container(
                             expand=True,
                             padding=ft.padding.only(top=14, right=18, bottom=18),
-                            content=glass_container(main_content, padding=20, radius=26),
+                            content=glass_container(main_content, padding=20, radius=26, expand=True),
                         ),
                     ],
                 ),

@@ -128,3 +128,8 @@ kanban.cmd
 .github/
 guide/
 
+tool_fix_image.py
+
+# Local AI preprocessing settings/logs
+.gemini_settings.json
+ai_api_calls.log

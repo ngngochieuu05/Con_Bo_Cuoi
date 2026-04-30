@@ -21,7 +21,117 @@
         "h": 0.3
       },
       "id_hinh_anh": 2
+    },
+    {
+      "id_hanh_vi": 3,
+      "ten_hanh_vi": "udder_swelling",
+      "bounding_box": {
+        "x_center": 0.48,
+        "y_center": 0.56,
+        "w": 0.28,
+        "h": 0.2
+      },
+      "id_hinh_anh": 3
+    },
+    {
+      "id_hanh_vi": 4,
+      "ten_hanh_vi": "limping",
+      "bounding_box": {
+        "x_center": 0.55,
+        "y_center": 0.62,
+        "w": 0.26,
+        "h": 0.24
+      },
+      "id_hinh_anh": 4
+    },
+    {
+      "id_hanh_vi": 5,
+      "ten_hanh_vi": "cow_side_view",
+      "bounding_box": {
+        "x_center": 0.5,
+        "y_center": 0.48,
+        "w": 0.42,
+        "h": 0.36
+      },
+      "id_hinh_anh": 5
+    },
+    {
+      "id_hanh_vi": 6,
+      "ten_hanh_vi": "skin_bump",
+      "bounding_box": {
+        "x_center": 0.43,
+        "y_center": 0.37,
+        "w": 0.14,
+        "h": 0.12
+      },
+      "id_hinh_anh": 6
+    },
+    {
+      "id_hanh_vi": 7,
+      "ten_hanh_vi": "non_cow_object",
+      "bounding_box": {
+        "x_center": 0.52,
+        "y_center": 0.5,
+        "w": 0.6,
+        "h": 0.44
+      },
+      "id_hinh_anh": 7
+    },
+    {
+      "id_hanh_vi": 8,
+      "ten_hanh_vi": "hoof_closeup",
+      "bounding_box": {
+        "x_center": 0.46,
+        "y_center": 0.67,
+        "w": 0.22,
+        "h": 0.18
+      },
+      "id_hinh_anh": 8
+    },
+    {
+      "id_hanh_vi": 9,
+      "ten_hanh_vi": "skin_patch",
+      "bounding_box": {
+        "x_center": 0.58,
+        "y_center": 0.4,
+        "w": 0.18,
+        "h": 0.14
+      },
+      "id_hinh_anh": 9
+    },
+    {
+      "id_hanh_vi": 10,
+      "ten_hanh_vi": "cow_face",
+      "bounding_box": {
+        "x_center": 0.51,
+        "y_center": 0.33,
+        "w": 0.24,
+        "h": 0.2
+      },
+      "id_hinh_anh": 10
+    },
+    {
+      "id_hanh_vi": 11,
+      "ten_hanh_vi": "ear_closeup",
+      "bounding_box": {
+        "x_center": 0.64,
+        "y_center": 0.22,
+        "w": 0.16,
+        "h": 0.16
+      },
+      "id_hinh_anh": 11
+    },
+    {
+      "id_hanh_vi": 12,
+      "ten_hanh_vi": "skin_redness",
+      "bounding_box": {
+        "x_center": 0.41,
+        "y_center": 0.45,
+        "w": 0.2,
+        "h": 0.16
+      },
+      "id_hinh_anh": 12
     }
   ],
-  "next_id": 3
+  "next_id": 13
 }

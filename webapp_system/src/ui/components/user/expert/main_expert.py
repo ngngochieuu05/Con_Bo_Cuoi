@@ -11,7 +11,7 @@ from ui.theme import build_role_shell
 
 def ExpertMainScreen(page: ft.Page, on_logout=None):
     views = {
-        "raw_data": build_raw_data_review,
+        "raw_data": lambda: build_raw_data_review(page=page),
         "utilities": build_expert_utilities,
     }
     navigation_items = [
@@ -25,7 +25,9 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
     content_holder = ft.Container(expand=True)
     root = ft.Container(expand=True)
 
-    def select_view(key: str):
+    def select_view(key: str, payload: dict | None = None):
+        if payload and isinstance(page.data, dict):
+            page.data.update(payload)
         selected["key"] = key
         render()
 
@@ -41,10 +43,10 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
         elif selected["key"] == "utilities":
             content_holder.content = build_expert_utilities(page=page)
         else:
-            content_holder.content = views.get(selected["key"], build_raw_data_review)()
+            content_holder.content = views.get(selected["key"], lambda: build_raw_data_review(page=page))()
         root.content = build_role_shell(
             role_title="CHUYÊN GIA",
-            role_subtitle="Đánh giá và tư vấn chuyên môn",
+            role_subtitle="",
             navigation_items=navigation_items,
             selected_key=selected["key"],
             on_select=select_view,
