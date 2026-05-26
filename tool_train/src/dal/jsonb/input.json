@@ -1,0 +1,12 @@
+{
+  "entries": [
+    {
+      "name": "1.yolov8_jilsa_80-10-10",
+      "path": "D:\\DACS\\SSBBKH\\dataset\\jilsa\\class\\extract\\80-10-10\\yolov8_jilsa_80-10-10"
+    },
+    {
+      "name": "2.yolov8_plos_80-0-20",
+      "path": "D:\\DACS\\SSBBKH\\dataset\\plos\\class\\extract\\70-0-30"
+    }
+  ]
+}
