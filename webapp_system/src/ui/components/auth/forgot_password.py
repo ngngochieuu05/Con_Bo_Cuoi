@@ -1,38 +1,39 @@
 import flet as ft
-from ui.theme import build_auth_shell, button_style, auth_text_field
+
+from ui.theme import auth_text_field, build_auth_shell, button_style
 
 
 def ForgotPasswordScreen(on_back_to_login=None):
-    """Tạo màn hình quên mật khẩu."""
-    email = auth_text_field("Email đã đăng ký", ft.Icons.EMAIL)
+    """Màn hình hướng dẫn quên mật khẩu."""
+
+    username = auth_text_field("Tên đăng nhập", ft.Icons.PERSON_OUTLINE)
     message = ft.Text("", size=12)
     submit_btn = ft.ElevatedButton(
-        "Gửi yêu cầu đặt lại",
-        icon=ft.Icons.SEND,
+        "Gửi yêu cầu hỗ trợ",
+        icon=ft.Icons.SUPPORT_AGENT,
         style=button_style("warning"),
         height=48,
     )
 
-    def handle_submit(e):
-        if not email.value or "@" not in email.value:
-            message.value = "Vui lòng nhập email hợp lệ."
+    def handle_submit(_e):
+        uname = (username.value or "").strip()
+        if not uname:
+            message.value = "Vui lòng nhập tên đăng nhập cần hỗ trợ."
             message.color = ft.Colors.AMBER_200
             message.update()
             return
-        # Hiển thị thông báo thành công (UI mockup)
-        message.value = f"Đã gửi link đặt lại mật khẩu tới {email.value}"
+        message.value = (
+            "Yêu cầu đã được ghi nhận. Vui lòng liên hệ quản trị viên hoặc chuyên gia hệ thống "
+            "để được cấp lại mật khẩu."
+        )
         message.color = ft.Colors.GREEN_300
-        email.disabled = True
-        submit_btn.disabled = True
         message.update()
-        email.update()
-        submit_btn.update()
 
     submit_btn.on_click = handle_submit
 
     return build_auth_shell(
         title="Quên mật khẩu",
-        description="Nhập email đã đăng ký, chúng tôi sẽ gửi link đặt lại mật khẩu.",
+        description="Nhập tên đăng nhập để gửi yêu cầu hỗ trợ đặt lại mật khẩu.",
         form_controls=[
             ft.Container(
                 border_radius=14,
@@ -44,7 +45,7 @@ def ForgotPasswordScreen(on_back_to_login=None):
                     controls=[
                         ft.Icon(ft.Icons.INFO_OUTLINE, color=ft.Colors.AMBER_200, size=18),
                         ft.Text(
-                            "Link xác nhận sẽ được gửi về hộp thư của bạn.",
+                            "Hệ thống hiện không gửi email tự động. Quản trị viên sẽ hỗ trợ đặt lại mật khẩu thủ công.",
                             color=ft.Colors.AMBER_100,
                             size=12,
                             expand=True,
@@ -52,7 +53,7 @@ def ForgotPasswordScreen(on_back_to_login=None):
                     ],
                 ),
             ),
-            email,
+            username,
             message,
             ft.Container(height=4),
             submit_btn,

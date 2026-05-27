@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+from datetime import datetime
+
 import flet as ft
 
 PRIMARY = "#4CAF50"
@@ -7,14 +10,12 @@ WARNING = "#F2C94C"
 DANGER = "#FF7A7A"
 TEXT_DARK = "#06131B"
 
-# ── Airbnb button tokens ────────────────────────────────────────────────────
-_BTN_NEAR_BLACK  = "#222222"   # primary bg
-_BTN_RAUSCH      = "#ff385c"   # brand accent / hover
-_BTN_DEEP_RAUSCH = "#e00b41"   # secondary hover (pressed)
-_BTN_SURFACE     = "#f2f2f2"   # surface bg
-_BTN_ERROR       = "#c13515"   # danger / error
-_BTN_ERROR_DARK  = "#b32505"   # danger hover
-# ───────────────────────────────────────────────────────────────────────────
+_BTN_NEAR_BLACK = "#222222"
+_BTN_RAUSCH = "#ff385c"
+_BTN_DEEP_RAUSCH = "#e00b41"
+_BTN_SURFACE = "#f2f2f2"
+_BTN_ERROR = "#c13515"
+_BTN_ERROR_DARK = "#b32505"
 
 GLASS_BG = ft.Colors.with_opacity(0.16, ft.Colors.WHITE)
 GLASS_BORDER = ft.Colors.with_opacity(0.18, ft.Colors.WHITE)
@@ -39,29 +40,15 @@ def glass_container(content, width=None, height=None, padding: int | ft.Padding 
 
 
 def button_style(kind="primary", radius=8):
-    """
-    Airbnb-inspired button style.
-      primary   → near-black #222222, hover → Rausch Red #ff385c
-      secondary → Rausch Red #ff385c, hover → Deep Rausch #e00b41
-      surface   → light #f2f2f2 (circular/utility buttons)
-      warning   → amber (functional, kept as-is)
-      danger    → error red #c13515
-    """
     palette = {
-        "primary":   (_BTN_NEAR_BLACK,  ft.Colors.WHITE,  _BTN_RAUSCH),
-        "secondary": (_BTN_RAUSCH,      ft.Colors.WHITE,  _BTN_DEEP_RAUSCH),
-        "surface":   (_BTN_SURFACE,     _BTN_NEAR_BLACK,  ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
-        "warning":   (WARNING,          TEXT_DARK,        WARNING),
-        "danger":    (_BTN_ERROR,       ft.Colors.WHITE,  _BTN_ERROR_DARK),
+        "primary": (_BTN_NEAR_BLACK, ft.Colors.WHITE, _BTN_RAUSCH),
+        "secondary": (_BTN_RAUSCH, ft.Colors.WHITE, _BTN_DEEP_RAUSCH),
+        "surface": (_BTN_SURFACE, _BTN_NEAR_BLACK, ft.Colors.with_opacity(0.12, ft.Colors.BLACK)),
+        "warning": (WARNING, TEXT_DARK, WARNING),
+        "danger": (_BTN_ERROR, ft.Colors.WHITE, _BTN_ERROR_DARK),
     }
     bg, fg, hover = palette.get(kind, palette["primary"])
-
-    border_color = (
-        ft.Colors.with_opacity(0.18, ft.Colors.BLACK)
-        if kind == "surface"
-        else bg
-    )
-
+    border_color = ft.Colors.with_opacity(0.18, ft.Colors.BLACK) if kind == "surface" else bg
     return ft.ButtonStyle(
         bgcolor={
             ft.ControlState.DEFAULT: bg,
@@ -89,32 +76,42 @@ def status_badge(label: str, kind: str = "primary"):
         bgcolor=ft.Colors.with_opacity(0.22, color),
         border=ft.border.all(1, ft.Colors.with_opacity(0.45, color)),
         content=ft.Text(
-            label, size=11, weight=ft.FontWeight.W_600,
-            max_lines=1, no_wrap=True,
+            label,
+            size=11,
+            weight=ft.FontWeight.W_600,
+            max_lines=1,
+            no_wrap=True,
             overflow=ft.TextOverflow.CLIP,
         ),
     )
 
 
-def fmt_dt(iso_str: str, fmt: str = "%d/%m %H:%M") -> str:
-    """Format ISO datetime thành chuỗi ngắn dễ đọc."""
+def fmt_dt(iso_str: str | datetime, fmt: str = "%d/%m %H:%M") -> str:
     if not iso_str:
-        return "—"
+        return "-"
     try:
-        from datetime import datetime as _dt
-        return _dt.fromisoformat(iso_str[:19]).strftime(fmt)
+        if isinstance(iso_str, datetime):
+            return iso_str.strftime(fmt)
+        text = str(iso_str).strip()
+        if not text:
+            return "-"
+        return datetime.fromisoformat(text[:19]).strftime(fmt)
     except Exception:
-        return iso_str[:16]
+        text = str(iso_str).strip()
+        return text[:16] if text else "-"
 
 
 def section_title(icon_name: str, text: str, subtitle: str = "") -> ft.Control:
-    """Tiêu đề section với icon + text, tùy chọn subtitle."""
     icon = getattr(ft.Icons, icon_name, ft.Icons.CIRCLE)
     controls: list[ft.Control] = [
-        ft.Row(tight=True, spacing=8, controls=[
-            ft.Icon(icon, size=18, color=ft.Colors.WHITE70),
-            ft.Text(text, size=17, weight=ft.FontWeight.W_700),
-        ])
+        ft.Row(
+            tight=True,
+            spacing=8,
+            controls=[
+                ft.Icon(icon, size=18, color=ft.Colors.WHITE70),
+                ft.Text(text, size=17, weight=ft.FontWeight.W_700),
+            ],
+        )
     ]
     if subtitle:
         controls.append(ft.Text(subtitle, size=11, color=ft.Colors.WHITE54))
@@ -146,7 +143,6 @@ def inline_field(
     expand: bool | int = True,
     hint: str = "",
 ) -> ft.TextField:
-    """TextField compact dùng bên trong form của các page (không phải auth)."""
     return ft.TextField(
         label=label,
         hint_text=hint or None,
@@ -179,7 +175,7 @@ def metric_card(title: str, value: str, icon=ft.Icons.INSIGHTS, accent=PRIMARY):
                 ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     controls=[
-                        ft.Text(title, size=13, color=ft.Colors.WHITE70),
+                        ft.Text(title, size=13, color=ft.Colors.WHITE70, expand=True, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
                         ft.Icon(icon, color=accent, size=18),
                     ],
                 ),
@@ -191,24 +187,14 @@ def metric_card(title: str, value: str, icon=ft.Icons.INSIGHTS, accent=PRIMARY):
 
 def _on_row_hover(e: ft.ControlEvent):
     e.control.bgcolor = (
-        ft.Colors.with_opacity(0.22, ft.Colors.WHITE)
-        if e.data == "true"
-        else ft.Colors.with_opacity(0.09, ft.Colors.WHITE)
+        ft.Colors.with_opacity(0.22, ft.Colors.WHITE) if e.data == "true" else ft.Colors.with_opacity(0.09, ft.Colors.WHITE)
     )
     e.control.update()
 
 
-def data_table(
-    headers: list[str],
-    rows: list[list[ft.Control]],
-    col_flex: list[int] | None = None,
-):
-    """Bảng dữ liệu glassmorphism.
-    col_flex: danh sách flex weight cho từng cột (mặc định bằng nhau).
-    """
+def data_table(headers: list[str], rows: list[list[ft.Control]], col_flex: list[int] | None = None):
     n = len(headers)
     flex = col_flex if (col_flex and len(col_flex) == n) else [1] * n
-
     header = ft.Container(
         padding=ft.padding.symmetric(horizontal=12, vertical=9),
         border_radius=12,
@@ -217,10 +203,7 @@ def data_table(
             controls=[
                 ft.Container(
                     expand=flex[i],
-                    content=ft.Text(
-                        h, weight=ft.FontWeight.W_700, size=12,
-                        max_lines=1, overflow=ft.TextOverflow.CLIP,
-                    ),
+                    content=ft.Text(h, weight=ft.FontWeight.W_700, size=12, max_lines=1, overflow=ft.TextOverflow.CLIP),
                 )
                 for i, h in enumerate(headers)
             ]
@@ -235,18 +218,10 @@ def data_table(
                 border_radius=10,
                 padding=ft.padding.symmetric(horizontal=12, vertical=9),
                 on_hover=_on_row_hover,
-                content=ft.Row(
-                    controls=[
-                        ft.Container(expand=flex[i], content=cell)
-                        for i, cell in enumerate(row)
-                    ]
-                ),
+                content=ft.Row(controls=[ft.Container(expand=flex[i], content=cell) for i, cell in enumerate(row)]),
             )
         )
-    return ft.Column(
-        spacing=5,
-        controls=[header, ft.Column(spacing=4, controls=body_rows)],
-    )
+    return ft.Column(spacing=5, controls=[header, ft.Column(spacing=4, controls=body_rows)])
 
 
 def build_background(content: ft.Control):
@@ -269,64 +244,58 @@ def build_background(content: ft.Control):
 
 
 def _build_glass_nav_bar(navigation_items, selected_key, on_select):
-    """Apple Liquid Glass floating bottom nav bar."""
-
     def _on_hover(e, is_sel):
         if not is_sel:
-            e.control.bgcolor = (
-                ft.Colors.with_opacity(0.14, ft.Colors.WHITE)
-                if e.data == "true"
-                else ft.Colors.TRANSPARENT
-            )
+            e.control.bgcolor = ft.Colors.with_opacity(0.14, ft.Colors.WHITE) if e.data == "true" else ft.Colors.TRANSPARENT
             e.control.update()
 
-    items = []
+    item_controls = []
     for key, label, icon_name in navigation_items:
         icon = getattr(ft.Icons, icon_name, ft.Icons.CIRCLE)
         is_selected = key == selected_key
-        # Rút gọn label xuống tối đa 6 ký tự để vừa phone
-        short_label = label if len(label) <= 7 else label[:6] + "…"
-        items.append(
+        item_controls.append(
             ft.Container(
-                expand=1,
+                expand=True,
                 on_click=lambda e, k=key: on_select(k),
                 on_hover=lambda e, s=is_selected: _on_hover(e, s),
-                border_radius=20,
+                border_radius=18,
                 animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
-                bgcolor=(
-                    ft.Colors.with_opacity(0.30, PRIMARY)
-                    if is_selected
-                    else ft.Colors.TRANSPARENT
-                ),
-                padding=ft.padding.symmetric(vertical=7, horizontal=2),
+                bgcolor=ft.Colors.with_opacity(0.30, PRIMARY) if is_selected else ft.Colors.TRANSPARENT,
+                padding=ft.padding.symmetric(vertical=7, horizontal=6),
                 content=ft.Column(
                     tight=True,
-                    spacing=2,
+                    spacing=3,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Icon(
-                            icon,
-                            color=ft.Colors.WHITE if is_selected else ft.Colors.WHITE54,
-                            size=20,
-                        ),
+                        ft.Icon(icon, color=ft.Colors.WHITE if is_selected else ft.Colors.WHITE54, size=18),
                         ft.Text(
-                            short_label,
-                            size=8,
+                            label,
+                            size=9,
                             color=ft.Colors.WHITE if is_selected else ft.Colors.WHITE54,
                             weight=ft.FontWeight.W_700 if is_selected else ft.FontWeight.W_400,
                             text_align=ft.TextAlign.CENTER,
-                            max_lines=1,
-                            overflow=ft.TextOverflow.CLIP,
+                            max_lines=2,
+                            overflow=ft.TextOverflow.ELLIPSIS,
                         ),
                     ],
                 ),
             )
         )
+
+    rows: list[ft.Control] = []
+    row_size = 4
+    for i in range(0, len(item_controls), row_size):
+        chunk = item_controls[i:i + row_size]
+        row_controls = [ft.Container(expand=1, content=item) for item in chunk]
+        while len(row_controls) < row_size:
+            row_controls.append(ft.Container(expand=1))
+        rows.append(ft.Row(spacing=6, controls=row_controls))
+
     return ft.Container(
-        bottom=14,
-        left=12,
-        right=12,
-        height=74,
+        bottom=10,
+        left=8,
+        right=8,
+        height=132,
         border_radius=28,
         bgcolor=ft.Colors.with_opacity(0.20, ft.Colors.WHITE),
         border=ft.border.all(1, ft.Colors.with_opacity(0.32, ft.Colors.WHITE)),
@@ -336,13 +305,12 @@ def _build_glass_nav_bar(navigation_items, selected_key, on_select):
             color=ft.Colors.with_opacity(0.40, ft.Colors.BLACK),
             offset=ft.Offset(0, 10),
         ),
-        padding=ft.padding.symmetric(horizontal=10, vertical=0),
-        content=ft.Row(spacing=0, controls=items),
+        padding=ft.padding.symmetric(horizontal=10, vertical=8),
+        content=ft.Column(spacing=6, controls=rows),
     )
 
 
 def _build_avatar_btn(page: ft.Page | None, on_profile=None) -> ft.Control:
-    """Circular avatar button shown in the top-right header corner."""
     b64 = None
     ho_ten = "?"
     if page is not None:
@@ -353,13 +321,14 @@ def _build_avatar_btn(page: ft.Page | None, on_profile=None) -> ft.Control:
             pass
     initial = (ho_ten or "?")[0].upper()
     inner = (
-        ft.Image(src_base64=b64, width=36, height=36, fit=ft.ImageFit.COVER)
+        ft.Image(src_base64=b64, width=38, height=38, fit=ft.ImageFit.COVER)
         if b64
-        else ft.Text(initial, size=14, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE)
+        else ft.Text(initial, size=15, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE)
     )
     return ft.Container(
-        width=38, height=38,
-        border_radius=19,
+        width=42,
+        height=42,
+        border_radius=21,
         bgcolor=ft.Colors.with_opacity(0.30, PRIMARY),
         border=ft.border.all(2, ft.Colors.with_opacity(0.55, ft.Colors.WHITE)),
         alignment=ft.alignment.center,
@@ -381,7 +350,6 @@ def build_role_shell(
     page: ft.Page | None = None,
     on_profile=None,
 ):
-    # Đọc is_mobile từ page.data (đặt từ main.py) — đảm bảo nhất quán
     is_mobile = True
     if page is not None:
         try:
@@ -389,7 +357,6 @@ def build_role_shell(
             if isinstance(data, dict):
                 is_mobile = data.get("is_mobile", True)
             else:
-                # fallback: cố gắng đọc window.width
                 win_w = page.window.width
                 if win_w and win_w > 100:
                     is_mobile = win_w <= 900
@@ -398,29 +365,36 @@ def build_role_shell(
 
     if is_mobile:
         header = ft.Container(
-            padding=ft.padding.only(left=16, right=16, top=14, bottom=10),
+            padding=ft.padding.only(left=14, right=14, top=14, bottom=10),
             bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
-            border=ft.border.only(
-                bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE))
-            ),
+            border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE))),
             content=ft.Row(
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    ft.Column(
-                        spacing=1,
-                        tight=True,
-                        controls=[
-                            ft.Text(role_title, size=15, weight=ft.FontWeight.W_700),
-                            ft.Text(role_subtitle, size=10, color=ft.Colors.WHITE60),
-                        ],
+                    ft.Container(
+                        expand=True,
+                        content=ft.Row(
+                            spacing=12,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            controls=[
+                                ft.Image(src="logo.png", width=48, height=48, fit=ft.ImageFit.CONTAIN),
+                                ft.Column(
+                                    expand=True,
+                                    spacing=2,
+                                    tight=True,
+                                    controls=[
+                                        ft.Text(role_title, size=15, weight=ft.FontWeight.W_700, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                                        ft.Text(role_subtitle, size=10, color=ft.Colors.WHITE60, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                                    ],
+                                ),
+                            ],
+                        ),
                     ),
                     _build_avatar_btn(page, on_profile),
                 ],
             ),
         )
-
-        glass_nav = _build_glass_nav_bar(navigation_items, selected_key, on_select)
 
         return build_background(
             ft.Stack(
@@ -433,14 +407,12 @@ def build_role_shell(
                             header,
                             ft.Container(
                                 expand=True,
-                                padding=ft.padding.only(
-                                    left=10, right=10, top=8, bottom=96
-                                ),
-                                content=glass_container(main_content, padding=14, radius=18),
+                                padding=ft.padding.only(left=6, right=6, top=8, bottom=152),
+                                content=glass_container(main_content, padding=10, radius=18),
                             ),
                         ],
                     ),
-                    glass_nav,
+                    _build_glass_nav_bar(navigation_items, selected_key, on_select),
                 ],
             )
         )
@@ -458,11 +430,7 @@ def build_role_shell(
                 icon=icon,
                 style=ft.ButtonStyle(
                     color=ft.Colors.WHITE,
-                    bgcolor=(
-                        ft.Colors.with_opacity(0.28, PRIMARY)
-                        if selected_key == key
-                        else ft.Colors.TRANSPARENT
-                    ),
+                    bgcolor=ft.Colors.with_opacity(0.28, PRIMARY) if selected_key == key else ft.Colors.TRANSPARENT,
                     shape=ft.RoundedRectangleBorder(radius=12),
                 ),
                 on_click=lambda e, k=key: on_select(k),
@@ -473,13 +441,28 @@ def build_role_shell(
     top_bar = ft.Container(
         padding=ft.padding.only(left=18, right=18, top=10, bottom=10),
         bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
-        border=ft.border.only(
-            bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.12, ft.Colors.WHITE))
-        ),
+        border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.with_opacity(0.12, ft.Colors.WHITE))),
         content=ft.Row(
-            alignment=ft.MainAxisAlignment.END,
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            controls=[_build_avatar_btn(page, on_profile)],
+            controls=[
+                ft.Row(
+                    spacing=12,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Image(src="logo.png", width=56, height=56, fit=ft.ImageFit.CONTAIN),
+                        ft.Column(
+                            spacing=1,
+                            tight=True,
+                            controls=[
+                                ft.Text("Con Bò Cười", size=16, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
+                                ft.Text("Hệ thống giám sát và quản lý chăn nuôi bò bằng AI", size=10, color=ft.Colors.WHITE60),
+                            ],
+                        ),
+                    ],
+                ),
+                _build_avatar_btn(page, on_profile),
+            ],
         ),
     )
 
@@ -495,10 +478,7 @@ def build_role_shell(
                         ft.Container(
                             width=280,
                             padding=18,
-                            content=glass_container(
-                                ft.Column(expand=True, spacing=10, controls=sidebar_controls),
-                                padding=20,
-                            ),
+                            content=glass_container(ft.Column(expand=True, spacing=10, controls=sidebar_controls), padding=20),
                         ),
                         ft.Container(
                             expand=True,
@@ -512,13 +492,7 @@ def build_role_shell(
     )
 
 
-def auth_text_field(
-    label: str,
-    icon=None,
-    password: bool = False,
-    can_reveal: bool = False,
-) -> ft.TextField:
-    """TextField glassmorphism chuẩn cho màn hình auth."""
+def auth_text_field(label: str, icon=None, password: bool = False, can_reveal: bool = False) -> ft.TextField:
     return ft.TextField(
         label=label,
         prefix_icon=icon,
@@ -536,12 +510,7 @@ def auth_text_field(
     )
 
 
-def auth_dropdown(
-    label: str,
-    options: list[tuple[str, str]],
-    value: str | None = None,
-) -> ft.Dropdown:
-    """Dropdown glassmorphism chuẩn cho màn hình auth."""
+def auth_dropdown(label: str, options: list[tuple[str, str]], value: str | None = None) -> ft.Dropdown:
     return ft.Dropdown(
         label=label,
         value=value,
@@ -573,10 +542,10 @@ def build_auth_shell(title: str, description: str, form_controls: list[ft.Contro
     )
 
     logo = ft.Container(
-        top=12,
-        right=12,
-        width=80,
-        height=80,
+        top=10,
+        right=10,
+        width=112,
+        height=112,
         content=ft.Image(src="logo.png", fit=ft.ImageFit.CONTAIN),
     )
 

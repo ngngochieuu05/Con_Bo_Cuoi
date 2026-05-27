@@ -5,30 +5,24 @@ from ui.components.admin.model_management import build_model_management
 from ui.components.admin.oa_management import build_oa_management
 from ui.components.admin.profile_admin import build_profile_admin
 from ui.components.admin.settings import build_admin_settings
-from ui.components.admin.train_management import build_train_management
 from ui.components.admin.user_management import build_user_management
-from ui.components.admin.camera_management import build_camera_management
 from ui.theme import build_role_shell
 
 
 def AdminMainScreen(page: ft.Page, on_logout=None):
     views = {
         "dashboard": lambda: build_admin_dashboard(),
-        "users":     lambda: build_user_management(),
-        "cameras":   lambda: build_camera_management(page=page),
-        "models":    lambda: build_model_management(),
-        "train":     lambda: build_train_management(),
+        "users": lambda: build_user_management(),
+        "models": lambda: build_model_management(),
         "analytics": lambda: build_oa_management(),
-        "settings":  lambda: build_admin_settings(on_logout=on_logout),
+        "settings": lambda: build_admin_settings(on_logout=on_logout),
     }
     navigation_items = [
-        ("dashboard", "Tổng quan",  "DASHBOARD"),
-        ("users",     "Tài khoản",  "GROUP"),
-        ("cameras",   "Camera",     "VIDEOCAM"),
-        ("models",    "Mô hình",    "SMART_TOY"),
-        ("train",     "Train AI",   "MODEL_TRAINING"),
-        ("analytics", "Thống kê",   "ANALYTICS"),
-        ("settings",  "Cài đặt",    "SETTINGS"),
+        ("dashboard", "Tổng quan", "DASHBOARD"),
+        ("users", "Tài khoản", "GROUP"),
+        ("models", "Mô hình", "SMART_TOY"),
+        ("analytics", "Thống kê", "ANALYTICS"),
+        ("settings", "Cài đặt", "SETTINGS"),
     ]
     selected = {"key": "dashboard"}
     content_holder = ft.Container(expand=True)

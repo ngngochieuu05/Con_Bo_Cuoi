@@ -3,7 +3,10 @@ import base64
 import flet as ft
 
 from bll.services.auth_service import get_user_by_id, update_profile, change_password_safe
+from bll.services.local_chat_store import save_local_profile_snapshot
+from bll.services.monitor_service import get_farmer_cameras
 from ui.theme import button_style, glass_container, inline_field, PRIMARY
+from ui.upload_bridge import build_upload_batch, is_web_picker_file
 
 
 def build_profile_farmer(page: ft.Page, on_back=None):
@@ -48,16 +51,49 @@ def build_profile_farmer(page: ft.Page, on_back=None):
     def on_file_result(e: ft.FilePickerResultEvent):
         if not e.files:
             return
+        file_obj = e.files[0]
+        if is_web_picker_file(file_obj):
+            try:
+                items, jobs = build_upload_batch(page, [file_obj], subdir="profile/farmer")
+                file_picker.data = {"pending": items}
+                file_picker.upload(jobs)
+                snack("Đang tải ảnh từ thiết bị...")
+            except Exception as ex:
+                snack(f"Lỗi tải ảnh: {ex}", error=True)
+            return
         try:
-            with open(e.files[0].path, "rb") as f:
+            with open(file_obj.path, "rb") as f:
                 b64 = base64.b64encode(f.read()).decode()
             avatar_b64["val"] = b64
+            save_local_profile_snapshot(user_id, {"anh_dai_dien": b64})
             refresh_avatar()
             snack("Đã chọn ảnh. Nhấn 'Lưu thông tin' để cập nhật.")
         except Exception as ex:
             snack(f"Lỗi đọc ảnh: {ex}", error=True)
 
-    file_picker = ft.FilePicker(on_result=on_file_result)
+    def on_file_upload(e: ft.FilePickerUploadEvent):
+        state = file_picker.data if isinstance(file_picker.data, dict) else None
+        if not state:
+            return
+        if e.error:
+            file_picker.data = None
+            snack(f"Lỗi upload ảnh: {e.error}", error=True)
+            return
+        if e.progress != 1.0:
+            return
+        item = state["pending"][0]
+        try:
+            with open(item["server_path"], "rb") as f:
+                avatar_b64["val"] = base64.b64encode(f.read()).decode()
+            save_local_profile_snapshot(user_id, {"anh_dai_dien": avatar_b64["val"]})
+            refresh_avatar()
+            snack("Đã chọn ảnh. Nhấn 'Lưu thông tin' để cập nhật.")
+        except Exception as ex:
+            snack(f"Lỗi đọc ảnh: {ex}", error=True)
+        finally:
+            file_picker.data = None
+
+    file_picker = ft.FilePicker(on_result=on_file_result, on_upload=on_file_upload)
     page.overlay.append(file_picker)
     page.update()
 
@@ -74,10 +110,129 @@ def build_profile_farmer(page: ft.Page, on_back=None):
     tf_role = inline_field("Vai trò", ft.Icons.BADGE, value="Nông dân")
     tf_role.read_only = True
     tf_role.bgcolor = ft.Colors.with_opacity(0.06, ft.Colors.WHITE)
+    tf_phone = inline_field("Số điện thoại", ft.Icons.PHONE, value=user.get("so_dien_thoai", ""))
+    tf_email = inline_field("Email", ft.Icons.EMAIL_OUTLINED, value=user.get("email", ""))
+    tf_address = inline_field("Địa chỉ", ft.Icons.LOCATION_ON_OUTLINED, value=user.get("dia_chi", ""))
+    tf_farm_name = inline_field("Tên trang trại", ft.Icons.HOME_WORK_OUTLINED, value=user.get("ten_trang_trai", ""))
+    tf_farm_location = inline_field("Địa điểm trang trại", ft.Icons.PIN_DROP_OUTLINED, value=user.get("dia_diem_trang_trai", ""))
+    tf_herd_size = inline_field("Quy mô đàn", ft.Icons.GROUPS_2_OUTLINED, value=str(user.get("quy_mo_dan", 0) or 0))
 
     tf_old_pw = inline_field("Mật khẩu hiện tại", ft.Icons.LOCK, password=True)
     tf_new_pw = inline_field("Mật khẩu mới", ft.Icons.LOCK_OUTLINE, password=True)
     tf_cfm_pw = inline_field("Xác nhận mật khẩu mới", ft.Icons.LOCK_RESET, password=True)
+
+    # ── Farm cameras info ─────────────────────────────────────────────────
+    my_cameras = get_farmer_cameras(user_id)
+    total_cams  = len(my_cameras)
+    online_cams = sum(1 for c in my_cameras if c.get("trang_thai") == "online")
+
+    # Danh sách khu vực chuồng (duy nhất)
+    khu_vuc_list = sorted({c.get("khu_vuc_chuong", "") for c in my_cameras if c.get("khu_vuc_chuong")})
+
+    cam_rows = []
+    for cam in my_cameras:
+        trang_thai = cam.get("trang_thai", "offline")
+        color_map = {"online": "#4CAF50", "warning": "#FFC107", "offline": "#9E9E9E"}
+        dot_color = color_map.get(trang_thai, "#9E9E9E")
+        cam_rows.append(
+            ft.Row(
+                spacing=8,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Container(width=8, height=8, border_radius=4, bgcolor=dot_color),
+                    ft.Text(
+                        f"{cam.get('id_camera', '')}  —  {cam.get('khu_vuc_chuong', '')}",
+                        size=12, color=ft.Colors.WHITE70, expand=True,
+                    ),
+                    ft.Text(trang_thai, size=10, color=dot_color),
+                ],
+            )
+        )
+
+    if not cam_rows:
+        cam_rows.append(ft.Text("Chưa có camera được gán.", size=12, color=ft.Colors.WHITE38, italic=True))
+
+    farm_section = glass_container(
+        padding=20,
+        content=ft.Column(
+            spacing=12,
+            controls=[
+                ft.Row(
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=8,
+                    controls=[
+                        ft.Icon(ft.Icons.VIDEOCAM, color="#4CAF50", size=18),
+                        ft.Text(
+                            "Trang trại của tôi",
+                            size=14, weight=ft.FontWeight.W_700,
+                            color=ft.Colors.WHITE70,
+                        ),
+                    ],
+                ),
+                ft.Row(
+                    spacing=8,
+                    controls=[
+                        ft.Container(
+                            expand=1,
+                            padding=ft.padding.symmetric(horizontal=10, vertical=12),
+                            border_radius=14,
+                            bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
+                            border=ft.border.all(1, ft.Colors.with_opacity(0.2, ft.Colors.WHITE)),
+                            content=ft.Column(
+                                tight=True,
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                controls=[
+                                    ft.Text(str(total_cams), size=22,
+                                            weight=ft.FontWeight.W_700, color=PRIMARY),
+                                    ft.Text("Tổng camera", size=10,
+                                            color=ft.Colors.WHITE60,
+                                            text_align=ft.TextAlign.CENTER),
+                                ],
+                            ),
+                        ),
+                        ft.Container(
+                            expand=1,
+                            padding=ft.padding.symmetric(horizontal=10, vertical=12),
+                            border_radius=14,
+                            bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
+                            border=ft.border.all(1, ft.Colors.with_opacity(0.2, ft.Colors.WHITE)),
+                            content=ft.Column(
+                                tight=True,
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                controls=[
+                                    ft.Text(str(online_cams), size=22,
+                                            weight=ft.FontWeight.W_700, color="#4CAF50"),
+                                    ft.Text("Đang online", size=10,
+                                            color=ft.Colors.WHITE60,
+                                            text_align=ft.TextAlign.CENTER),
+                                ],
+                            ),
+                        ),
+                        ft.Container(
+                            expand=1,
+                            padding=ft.padding.symmetric(horizontal=10, vertical=12),
+                            border_radius=14,
+                            bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.WHITE),
+                            border=ft.border.all(1, ft.Colors.with_opacity(0.2, ft.Colors.WHITE)),
+                            content=ft.Column(
+                                tight=True,
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                controls=[
+                                    ft.Text(str(len(khu_vuc_list)), size=22,
+                                            weight=ft.FontWeight.W_700, color="#FFC107"),
+                                    ft.Text("Khu vực", size=10,
+                                            color=ft.Colors.WHITE60,
+                                            text_align=ft.TextAlign.CENTER),
+                                ],
+                            ),
+                        ),
+                    ],
+                ),
+                ft.Divider(height=1, color=ft.Colors.with_opacity(0.15, ft.Colors.WHITE)),
+                *cam_rows,
+            ],
+        ),
+    )
 
     # ── Save handlers ──────────────────────────────────────────────────────
     def save_info(e):
@@ -85,13 +240,31 @@ def build_profile_farmer(page: ft.Page, on_back=None):
         if not ho_ten:
             snack("Họ tên không được để trống.", error=True)
             return
+        try:
+            herd_size = int((tf_herd_size.value or "0").strip() or 0)
+        except ValueError:
+            snack("Quy mô đàn phải là số nguyên.", error=True)
+            return
         updates = {"ho_ten": ho_ten}
+        updates["so_dien_thoai"] = tf_phone.value.strip()
+        updates["email"] = tf_email.value.strip()
+        updates["dia_chi"] = tf_address.value.strip()
+        updates["ten_trang_trai"] = tf_farm_name.value.strip()
+        updates["dia_diem_trang_trai"] = tf_farm_location.value.strip()
+        updates["quy_mo_dan"] = max(0, herd_size)
         if avatar_b64["val"]:
             updates["anh_dai_dien"] = avatar_b64["val"]
             page.client_storage.set("anh_dai_dien", avatar_b64["val"])
-        update_profile(user_id, updates)
+        ok, msg_txt = update_profile(user_id, updates)
+        if not ok:
+            snack(msg_txt, error=True)
+            return
         page.client_storage.set("ho_ten", ho_ten)
-        snack("Đã lưu thông tin thành công!")
+        if isinstance(page.data, dict):
+            page.data["ho_ten"] = ho_ten
+            if avatar_b64["val"]:
+                page.data["anh_dai_dien"] = avatar_b64["val"]
+        snack(msg_txt)
 
     def save_password(e):
         old, new, cfm = tf_old_pw.value, tf_new_pw.value, tf_cfm_pw.value
@@ -165,6 +338,18 @@ def build_profile_farmer(page: ft.Page, on_back=None):
                         tf_ho_ten,
                         tf_username,
                         tf_role,
+                        tf_phone,
+                        tf_email,
+                        tf_address,
+                        ft.Divider(height=1, color=ft.Colors.with_opacity(0.15, ft.Colors.WHITE)),
+                        ft.Text(
+                            "Thông tin trang trại",
+                            size=13, weight=ft.FontWeight.W_600,
+                            color=ft.Colors.WHITE70,
+                        ),
+                        tf_farm_name,
+                        tf_farm_location,
+                        tf_herd_size,
                         msg,
                         ft.ElevatedButton(
                             "Lưu thông tin",
@@ -176,6 +361,7 @@ def build_profile_farmer(page: ft.Page, on_back=None):
                     ],
                 ),
             ),
+            farm_section,
             glass_container(
                 padding=20,
                 content=ft.Column(

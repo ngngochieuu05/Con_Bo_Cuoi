@@ -1,17 +1,42 @@
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+
 import flet as ft
-import os, sys, threading, time
-from bll.services.monitor_service import load_config, save_config, get_local_ip
+
+from bll.services.monitor_service import get_local_ip, load_config, save_config
 from bll.user.farmer.tu_van_ai import clear_model_cache
-from ui.theme import glass_container, button_style, section_title, inline_field, DANGER, WARNING, PRIMARY, SECONDARY
+from ui.theme import PRIMARY, button_style, glass_container, inline_field, section_title
+
+
+def _main_entry_path() -> Path:
+    return Path(__file__).resolve().parents[3] / "main.py"
+
+
+def _workspace_root() -> Path:
+    return Path(__file__).resolve().parents[5]
+
+
+def _restart_current_app() -> None:
+    args = [sys.executable, str(_main_entry_path())]
+    kwargs = {"cwd": str(_workspace_root())}
+    if sys.platform.startswith("win"):
+        creationflags = 0
+        creationflags |= getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        creationflags |= getattr(subprocess, "DETACHED_PROCESS", 0)
+        kwargs["creationflags"] = creationflags
+    subprocess.Popen(args, **kwargs)
 
 
 def build_admin_settings(on_logout=None):
-    cfg      = load_config()
+    cfg = load_config()
     app_mode = cfg.get("app_mode", "desktop")
     app_port = str(cfg.get("app_port", 8080))
 
     mode_dropdown = ft.Dropdown(
-        label="Chế độ khởi động",
+        label="Ch\u1ebf \u0111\u1ed9 kh\u1edfi \u0111\u1ed9ng",
         value=app_mode,
         border_radius=12,
         bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
@@ -19,101 +44,125 @@ def build_admin_settings(on_logout=None):
         focused_border_color=PRIMARY,
         label_style=ft.TextStyle(color=ft.Colors.WHITE70, size=12),
         options=[
-            ft.dropdown.Option("desktop", "Desktop App"),
-            ft.dropdown.Option("web",     "Web Browser"),
+            ft.dropdown.Option("desktop", "\u1ee8ng d\u1ee5ng Desktop"),
+            ft.dropdown.Option("web", "\u1ee8ng d\u1ee5ng Web"),
         ],
         expand=True,
     )
     port_field = inline_field(
-        "Port (chế độ Web)", ft.Icons.SETTINGS_ETHERNET,
+        "Port (ch\u1ebf \u0111\u1ed9 Web)",
+        ft.Icons.SETTINGS_ETHERNET,
         value=app_port,
         keyboard_type=ft.KeyboardType.NUMBER,
     )
-    port_field.visible = (app_mode == "web")
+    port_field.visible = app_mode == "web"
     mode_status = ft.Text("", size=11, color=ft.Colors.WHITE70)
 
-    # ── LAN URL card ──────────────────────────────────────────────────────
-    def _url():
-        ip   = get_local_ip()
+    def _url() -> str:
+        ip = get_local_ip()
         port = int((port_field.value or "8080").strip() or "8080")
         return f"http://{ip}:{port}"
 
+    def _web_hint(short: bool = False) -> str:
+        return "\u2014 (b\u1eadt ch\u1ebf \u0111\u1ed9 Web)" if short else "\u2014 (b\u1eadt ch\u1ebf \u0111\u1ed9 Web \u0111\u1ec3 d\u00f9ng)"
+
     url_text = ft.Text(
-        _url() if app_mode == "web" else "— (bật chế độ Web để dùng)",
-        size=13, weight=ft.FontWeight.W_700,
-        color=ft.Colors.CYAN_200, selectable=True,
+        _url() if app_mode == "web" else _web_hint(False),
+        size=13,
+        weight=ft.FontWeight.W_700,
+        color=ft.Colors.CYAN_200,
+        selectable=True,
     )
     copy_status = ft.Text("", size=10, color=ft.Colors.GREEN_300)
 
-    def refresh_ip(e):
-        url_text.value   = _url() if mode_dropdown.value == "web" else "— (bật chế độ Web)"
+    def refresh_ip(_e):
+        url_text.value = _url() if mode_dropdown.value == "web" else _web_hint(True)
         copy_status.value = ""
-        url_text.update(); copy_status.update()
+        url_text.update()
+        copy_status.update()
 
     def copy_url(e):
         if e.page:
             e.page.set_clipboard(url_text.value)
-        copy_status.value = "Đã sao chép!"
+        copy_status.value = "\u0110\u00e3 sao ch\u00e9p!"
         copy_status.update()
 
-    def on_mode_change(e):
-        port_field.visible   = (mode_dropdown.value == "web")
-        url_text.value       = _url() if mode_dropdown.value == "web" else "— (bật chế độ Web)"
-        copy_status.value    = ""
-        port_field.update(); url_text.update(); copy_status.update()
+    def on_mode_change(_e):
+        port_field.visible = mode_dropdown.value == "web"
+        url_text.value = _url() if mode_dropdown.value == "web" else _web_hint(True)
+        copy_status.value = ""
+        port_field.update()
+        url_text.update()
+        copy_status.update()
 
     mode_dropdown.on_change = on_mode_change
 
     def save_mode(e):
         try:
-            old_mode = load_config().get("app_mode", "desktop")
-            data = {**load_config()}
-            data["app_mode"] = mode_dropdown.value or "desktop"
-            if mode_dropdown.value == "web":
+            current = load_config()
+            old_mode = current.get("app_mode", "desktop")
+            new_mode = mode_dropdown.value or "desktop"
+            data = {**current, "app_mode": new_mode}
+            if new_mode == "web":
                 data["app_port"] = int((port_field.value or "8080").strip())
             save_config(data)
-            new_mode = data["app_mode"]
 
-            if new_mode != old_mode:
-                # Đổi giao thức → đếm ngược rồi tự khởi động lại
-                url_text.value = _url() if new_mode == "web" else "— (bật chế độ Web)"
-                url_text.update()
+            url_text.value = _url() if new_mode == "web" else _web_hint(True)
+            url_text.update()
 
-                def _countdown():
-                    for i in (3, 2, 1):
-                        mode_status.value = f"Đã lưu. Khởi động lại sau {i}s..."
-                        mode_status.color = ft.Colors.AMBER_300
-                        mode_status.update()
-                        time.sleep(1)
-                    # Restart toàn bộ process
-                    try:
-                        os.execv(sys.executable, [sys.executable] + sys.argv)
-                    except Exception:
-                        # Fallback: chỉ tắt window nếu execv không dùng được
-                        if e.page:
-                            e.page.window.close()
-
-                threading.Thread(target=_countdown, daemon=True).start()
-            else:
-                # Cùng giao thức, chỉ lưu config
-                url_text.value = _url() if new_mode == "web" else "— (bật chế độ Web)"
-                url_text.update()
-                mode_status.value = "Đã lưu cấu hình."
+            if new_mode == old_mode:
+                mode_status.value = "\u0110\u00e3 l\u01b0u c\u1ea5u h\u00ecnh."
                 mode_status.color = ft.Colors.GREEN_300
                 mode_status.update()
+                return
+
+            page = getattr(e, "page", None)
+            is_web_runtime = bool(getattr(page, "web", False)) if page else False
+
+            if is_web_runtime:
+                mode_status.value = (
+                    "\u0110\u00e3 l\u01b0u ch\u1ebf \u0111\u1ed9 m\u1edbi. H\u00e3y \u0111\u00f3ng tab hi\u1ec7n t\u1ea1i v\u00e0 ch\u1ea1y l\u1ea1i \u1ee9ng d\u1ee5ng \u0111\u1ec3 \u00e1p d\u1ee5ng."
+                )
+                mode_status.color = ft.Colors.AMBER_300
+                mode_status.update()
+                return
+
+            mode_status.value = "\u0110\u00e3 l\u01b0u. \u1ee8ng d\u1ee5ng s\u1ebd kh\u1edfi \u0111\u1ed9ng l\u1ea1i s\u1ea1ch trong gi\u00e2y l\u00e1t..."
+            mode_status.color = ft.Colors.AMBER_300
+            mode_status.update()
+
+            def _restart():
+                time.sleep(0.8)
+                try:
+                    _restart_current_app()
+                finally:
+                    try:
+                        if page:
+                            page.window.close()
+                    except Exception:
+                        pass
+
+            threading.Thread(target=_restart, daemon=True).start()
         except Exception as err:
-            mode_status.value = f"Lỗi: {str(err)[:60]}"
+            mode_status.value = f"L\u1ed7i: {str(err)[:80]}"
             mode_status.color = ft.Colors.RED_300
             mode_status.update()
 
-    # ── Notification config (local state only) ────────────────────────────
-    sw_realtime = ft.Switch(label="Cảnh báo thời gian thực", value=True, active_color=PRIMARY)
-    sw_email    = ft.Switch(label="Gửi email tổng hợp mỗi ngày", value=True, active_color=PRIMARY)
+    sw_realtime = ft.Switch(
+        label="C\u1ea3nh b\u00e1o th\u1eddi gian th\u1ef1c",
+        value=True,
+        active_color=PRIMARY,
+    )
+    sw_email = ft.Switch(
+        label="G\u1eedi email t\u1ed5ng h\u1ee3p m\u1ed7i ng\u00e0y",
+        value=True,
+        active_color=PRIMARY,
+    )
 
-    # ── YOLO model device config ─────────────────────────────────────────
     yolo_mode_value = cfg.get("yolo_model_mode", "cpu")
+    gemini_api_key = str(cfg.get("gemini_api_key") or "")
     yolo_mode_dropdown = ft.Dropdown(
-        label="Chế độ chạy model YOLO",
+        label="Ch\u1ebf \u0111\u1ed9 ch\u1ea1y model YOLO",
         value=yolo_mode_value,
         border_radius=12,
         bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
@@ -121,35 +170,46 @@ def build_admin_settings(on_logout=None):
         focused_border_color=PRIMARY,
         label_style=ft.TextStyle(color=ft.Colors.WHITE70, size=12),
         options=[
-            ft.dropdown.Option("cpu",  "CPU (ưu tiên)"),
-            ft.dropdown.Option("gpu",  "GPU"),
-            ft.dropdown.Option("auto", "Auto"),
+            ft.dropdown.Option("cpu", "CPU (\u01b0u ti\u00ean)"),
+            ft.dropdown.Option("gpu", "GPU"),
+            ft.dropdown.Option("auto", "T\u1ef1 \u0111\u1ed9ng"),
         ],
     )
     yolo_status = ft.Text("", size=11, color=ft.Colors.WHITE70)
+    gemini_key_field = ft.TextField(
+        value=gemini_api_key,
+        hint_text="Gemini API key cho Tư vấn AI",
+        border_radius=12,
+        password=True,
+        can_reveal_password=True,
+        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+        border_color=ft.Colors.with_opacity(0.28, ft.Colors.WHITE),
+        focused_border_color=PRIMARY,
+        hint_style=ft.TextStyle(color=ft.Colors.WHITE38, size=11),
+        text_style=ft.TextStyle(color=ft.Colors.WHITE, size=12),
+        cursor_color=ft.Colors.WHITE,
+        content_padding=ft.padding.symmetric(horizontal=10, vertical=10),
+        prefix_icon=ft.Icons.KEY_OUTLINED,
+    )
 
-    def save_yolo_mode(e):
-        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    def save_yolo_mode(_e):
         try:
             current = load_config()
-            old_mode = current.get("yolo_model_mode", "cpu")
             new_mode = yolo_mode_dropdown.value or "cpu"
-            data = {**current, "yolo_model_mode": new_mode}
-            save_config(data)
-            clear_model_cache()
-            print(
-                f"[{ts}] [ADMIN][YOLO] yolo_model_mode: {old_mode} -> {new_mode} "
-                f"| model cache cleared",
-                flush=True,
+            save_config(
+                {
+                    **current,
+                    "yolo_model_mode": new_mode,
+                    "gemini_api_key": (gemini_key_field.value or "").strip(),
+                }
             )
+            clear_model_cache()
             yolo_status.value = (
-                f"Đã lưu — mode: {new_mode}. "
-                "Cache đã clear, áp dụng cho lần inference kế tiếp."
+                f"\u0110\u00e3 l\u01b0u ch\u1ebf \u0111\u1ed9 {new_mode} v\u00e0 API key Gemini. Cache model \u0111\u00e3 \u0111\u01b0\u1ee3c l\u00e0m m\u1edbi cho l\u1ea7n suy lu\u1eadn ti\u1ebfp theo."
             )
             yolo_status.color = ft.Colors.GREEN_300
         except Exception as err:
-            print(f"[{ts}] [ADMIN][YOLO][ERROR] save failed: {err}", flush=True)
-            yolo_status.value = f"Lỗi: {str(err)[:80]}"
+            yolo_status.value = f"L\u1ed7i: {str(err)[:80]}"
             yolo_status.color = ft.Colors.RED_300
         yolo_status.update()
 
@@ -162,263 +222,145 @@ def build_admin_settings(on_logout=None):
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    ft.Column(tight=True, spacing=1, controls=[
-                        ft.Text("Cài đặt hệ thống", size=20, weight=ft.FontWeight.W_700),
-                        ft.Text("Cấu hình & bảo mật", size=11, color=ft.Colors.WHITE54),
-                    ]),
+                    ft.Column(
+                        tight=True,
+                        spacing=1,
+                        controls=[
+                            ft.Text("C\u00e0i \u0111\u1eb7t h\u1ec7 th\u1ed1ng", size=20, weight=ft.FontWeight.W_700),
+                            ft.Text("C\u1ea5u h\u00ecnh v\u00e0 b\u1ea3o m\u1eadt", size=11, color=ft.Colors.WHITE54),
+                        ],
+                    ),
                     ft.Icon(ft.Icons.SETTINGS, color=ft.Colors.WHITE24, size=26),
                 ],
             ),
-
-            # Thông báo
-            glass_container(padding=14, radius=16, content=ft.Column(spacing=10, controls=[
-                section_title("NOTIFICATIONS", "Thông báo"),
-                sw_realtime,
-                sw_email,
-            ])),
-
-            # Cấu hình AI (YOLO device mode)
-            glass_container(padding=14, radius=16, content=ft.Column(spacing=10, controls=[
-                section_title("MEMORY", "Cấu hình AI"),
-                ft.Text(
-                    "Chọn device chạy YOLO inference. GPU nhanh hơn nhưng cần CUDA. "
-                    "Auto ưu tiên CPU, fallback GPU nếu CPU không khả dụng.",
-                    size=11, color=ft.Colors.WHITE54,
-                ),
-                yolo_mode_dropdown,
-                yolo_status,
-                ft.ElevatedButton(
-                    "Lưu cấu hình AI",
-                    icon=ft.Icons.SAVE,
-                    style=button_style("primary"),
-                    height=40,
-                    on_click=save_yolo_mode,
-                ),
-            ])),
-
-            # Chế độ & LAN URL
-            glass_container(padding=14, radius=16, content=ft.Column(spacing=10, controls=[
-                section_title("LANGUAGE", "Chế độ khởi động & Mạng LAN"),
-                ft.Text(
-                    "Web mode: Phone cùng WiFi mở trình duyệt với URL bên dưới.",
-                    size=11, color=ft.Colors.WHITE54,
-                ),
-                ft.Row(spacing=8, controls=[mode_dropdown, port_field]),
-                ft.Container(
-                    border_radius=12,
-                    bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.CYAN),
-                    border=ft.border.all(1, ft.Colors.with_opacity(0.3, ft.Colors.CYAN)),
-                    padding=ft.padding.symmetric(horizontal=12, vertical=10),
-                    content=ft.Column(spacing=6, controls=[
-                        ft.Row(
-                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            controls=[
-                                ft.Row(tight=True, spacing=6, controls=[
-                                    ft.Icon(ft.Icons.WIFI, size=14, color=ft.Colors.CYAN_300),
-                                    ft.Text("URL truy cập LAN", size=11, color=ft.Colors.CYAN_100),
-                                ]),
-                                ft.Row(spacing=0, tight=True, controls=[
-                                    ft.IconButton(ft.Icons.REFRESH, icon_size=16, tooltip="Lấy IP mới", icon_color=ft.Colors.CYAN_200, on_click=refresh_ip),
-                                    ft.IconButton(ft.Icons.COPY,    icon_size=16, tooltip="Sao chép URL", icon_color=ft.Colors.CYAN_200, on_click=copy_url),
-                                ]),
-                            ],
-                        ),
-                        url_text,
-                        copy_status,
-                    ]),
-                ),
-                mode_status,
-                ft.ElevatedButton(
-                    "Lưu cấu hình",
-                    icon=ft.Icons.SAVE,
-                    style=button_style("warning"),
-                    height=40,
-                    on_click=save_mode,
-                ),
-            ])),
-
-            # Đăng xuất
-            glass_container(padding=14, radius=16, content=ft.Column(spacing=10, controls=[
-                section_title("KEY", "Phiên làm việc"),
-                ft.Text("Kết thúc phiên hiện tại và quay về màn hình đăng nhập.", size=11, color=ft.Colors.WHITE54),
-                ft.ElevatedButton(
-                    "Đăng xuất",
-                    icon=ft.Icons.LOGOUT,
-                    style=button_style("danger"),
-                    height=40,
-                    on_click=lambda e: on_logout() if on_logout else None,
-                ),
-            ])),
-        ],
-    )
-
-
-    mode_dropdown = ft.Dropdown(
-        label="Chế độ khởi động",
-        value=app_mode,
-        border_radius=12,
-        options=[
-            ft.dropdown.Option("desktop", "Desktop App"),
-            ft.dropdown.Option("web", "Web Browser"),
-        ],
-    )
-    port_field = ft.TextField(
-        label="Port (chế độ Web)",
-        value=app_port,
-        keyboard_type=ft.KeyboardType.NUMBER,
-        border_radius=12,
-        visible=(app_mode == "web"),
-    )
-    mode_status = ft.Text("", size=11, color=ft.Colors.WHITE70)
-
-    # ---- LAN Access card ----
-    def _build_url():
-        ip = get_local_ip()
-        port = int((port_field.value or "8080").strip() or "8080")
-        return f"http://{ip}:{port}"
-
-    url_text = ft.Text(
-        _build_url() if app_mode == "web" else "— (bật chế độ Web để dùng)",
-        size=13,
-        weight=ft.FontWeight.W_700,
-        color=ft.Colors.CYAN_200,
-        selectable=True,
-    )
-    copy_status = ft.Text("", size=10, color=ft.Colors.GREEN_300)
-
-    def refresh_ip(e):
-        url_text.value = _build_url() if mode_dropdown.value == "web" else "— (bật chế độ Web)"
-        copy_status.value = ""
-        url_text.update()
-        copy_status.update()
-
-    def copy_url(e):
-        if e.page:
-            e.page.set_clipboard(url_text.value)
-        copy_status.value = "Đã sao chép!"
-        copy_status.update()
-
-    def on_mode_change(e):
-        port_field.visible = (mode_dropdown.value == "web")
-        url_text.value = _build_url() if mode_dropdown.value == "web" else "— (bật chế độ Web)"
-        copy_status.value = ""
-        port_field.update()
-        url_text.update()
-        copy_status.update()
-
-    mode_dropdown.on_change = on_mode_change
-
-    def save_mode(e):
-        try:
-            data = {**load_config()}
-            data["app_mode"] = mode_dropdown.value or "desktop"
-            if mode_dropdown.value == "web":
-                data["app_port"] = int((port_field.value or "8080").strip())
-            save_config(data)
-            url_text.value = _build_url() if mode_dropdown.value == "web" else "— (bật chế độ Web)"
-            url_text.update()
-            mode_status.value = "Đã lưu. Khởi động lại ứng dụng để áp dụng."
-            mode_status.color = ft.Colors.GREEN_300
-        except Exception as err:
-            mode_status.value = f"Lỗi: {str(err)[:60]}"
-            mode_status.color = ft.Colors.RED_300
-        mode_status.update()
-
-    return ft.Column(
-        expand=True,
-        spacing=14,
-        scroll=ft.ScrollMode.AUTO,
-        controls=[
-            ft.Text("Hệ thống & Bảo mật", size=22, weight=ft.FontWeight.W_700),
-
-            # Thông báo & Phân quyền
             glass_container(
-                padding=16, radius=18,
-                content=ft.Column(spacing=10, controls=[
-                    ft.Text("Thông báo", size=14, weight=ft.FontWeight.W_600),
-                    ft.Switch(label="Cảnh báo thời gian thực", value=True),
-                    ft.Switch(label="Gửi email tổng hợp mỗi ngày", value=True),
-                    ft.Divider(color=ft.Colors.WHITE12),
-                    ft.Text("Phân quyền", size=14, weight=ft.FontWeight.W_600),
-                    ft.Dropdown(
-                        label="Vai trò mặc định khi tạo tài khoản",
-                        border_radius=12,
-                        options=[
-                            ft.dropdown.Option("user", "Người dùng"),
-                            ft.dropdown.Option("expert", "Chuyên gia"),
-                            ft.dropdown.Option("admin", "Quản trị"),
-                        ],
-                        value="user",
-                    ),
-                    ft.ElevatedButton("Lưu cấu hình", icon=ft.Icons.SAVE, style=button_style("primary")),
-                ]),
+                padding=14,
+                radius=16,
+                content=ft.Column(
+                    spacing=10,
+                    controls=[
+                        section_title("NOTIFICATIONS", "Th\u00f4ng b\u00e1o"),
+                        sw_realtime,
+                        sw_email,
+                    ],
+                ),
             ),
-
-            # Chế độ + LAN URL
             glass_container(
-                padding=16, radius=18,
-                content=ft.Column(spacing=10, controls=[
-                    ft.Text("Chế độ & Truy cập mạng", size=14, weight=ft.FontWeight.W_600),
-                    ft.Text(
-                        "Web mode: phone cùng mạng WiFi mở trình duyệt vào URL bên dưới.",
-                        size=11, color=ft.Colors.WHITE60,
-                    ),
-                    mode_dropdown,
-                    port_field,
-                    # URL card
-                    ft.Container(
-                        border_radius=12,
-                        bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.CYAN),
-                        border=ft.border.all(1, ft.Colors.with_opacity(0.3, ft.Colors.CYAN)),
-                        padding=ft.padding.symmetric(horizontal=12, vertical=10),
-                        content=ft.Column(spacing=6, controls=[
-                            ft.Row(
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                padding=14,
+                radius=16,
+                content=ft.Column(
+                    spacing=10,
+                    controls=[
+                        section_title("MEMORY", "C\u1ea5u h\u00ecnh AI"),
+                        ft.Text(
+                            "Ch\u1ecdn thi\u1ebft b\u1ecb ch\u1ea1y YOLO inference. GPU nhanh h\u01a1n nh\u01b0ng c\u1ea7n CUDA. Ch\u1ebf \u0111\u1ed9 t\u1ef1 \u0111\u1ed9ng s\u1ebd \u01b0u ti\u00ean CPU v\u00e0 ch\u1ec9 chuy\u1ec3n khi ph\u00f9 h\u1ee3p.",
+                            size=11,
+                            color=ft.Colors.WHITE54,
+                        ),
+                        yolo_mode_dropdown,
+                        gemini_key_field,
+                        yolo_status,
+                        ft.ElevatedButton(
+                            "L\u01b0u c\u1ea5u h\u00ecnh AI",
+                            icon=ft.Icons.SAVE,
+                            style=button_style("primary"),
+                            height=40,
+                            on_click=save_yolo_mode,
+                        ),
+                    ],
+                ),
+            ),
+            glass_container(
+                padding=14,
+                radius=16,
+                content=ft.Column(
+                    spacing=10,
+                    controls=[
+                        section_title("LANGUAGE", "Ch\u1ebf \u0111\u1ed9 kh\u1edfi \u0111\u1ed9ng v\u00e0 m\u1ea1ng LAN"),
+                        ft.Text(
+                            "N\u1ebfu \u0111\u1ed5i gi\u1eefa Desktop v\u00e0 Web, \u1ee9ng d\u1ee5ng s\u1ebd \u0111\u00f3ng b\u1ea3n hi\u1ec7n t\u1ea1i r\u1ed3i kh\u1edfi \u0111\u1ed9ng l\u1ea1i s\u1ea1ch.",
+                            size=11,
+                            color=ft.Colors.WHITE54,
+                        ),
+                        ft.Row(spacing=8, controls=[mode_dropdown, port_field]),
+                        ft.Container(
+                            border_radius=12,
+                            bgcolor=ft.Colors.with_opacity(0.12, ft.Colors.CYAN),
+                            border=ft.border.all(1, ft.Colors.with_opacity(0.3, ft.Colors.CYAN)),
+                            padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                            content=ft.Column(
+                                spacing=6,
                                 controls=[
-                                    ft.Text("URL truy cập LAN", size=11, color=ft.Colors.CYAN_100),
-                                    ft.Row(spacing=4, tight=True, controls=[
-                                        ft.IconButton(
-                                            ft.Icons.REFRESH,
-                                            icon_size=16,
-                                            tooltip="Lấy IP mới",
-                                            on_click=refresh_ip,
-                                        ),
-                                        ft.IconButton(
-                                            ft.Icons.COPY,
-                                            icon_size=16,
-                                            tooltip="Sao chép URL",
-                                            on_click=copy_url,
-                                        ),
-                                    ]),
+                                    ft.Row(
+                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                        controls=[
+                                            ft.Row(
+                                                tight=True,
+                                                spacing=6,
+                                                controls=[
+                                                    ft.Icon(ft.Icons.WIFI, size=14, color=ft.Colors.CYAN_300),
+                                                    ft.Text("URL truy c\u1eadp LAN", size=11, color=ft.Colors.CYAN_100),
+                                                ],
+                                            ),
+                                            ft.Row(
+                                                spacing=0,
+                                                tight=True,
+                                                controls=[
+                                                    ft.IconButton(
+                                                        ft.Icons.REFRESH,
+                                                        icon_size=16,
+                                                        tooltip="L\u1ea5y IP m\u1edbi",
+                                                        icon_color=ft.Colors.CYAN_200,
+                                                        on_click=refresh_ip,
+                                                    ),
+                                                    ft.IconButton(
+                                                        ft.Icons.COPY,
+                                                        icon_size=16,
+                                                        tooltip="Sao ch\u00e9p URL",
+                                                        icon_color=ft.Colors.CYAN_200,
+                                                        on_click=copy_url,
+                                                    ),
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                    url_text,
+                                    copy_status,
                                 ],
                             ),
-                            url_text,
-                            copy_status,
-                        ]),
-                    ),
-                    mode_status,
-                    ft.ElevatedButton(
-                        "Lưu & khởi động lại",
-                        icon=ft.Icons.RESTART_ALT,
-                        style=button_style("warning"),
-                        on_click=save_mode,
-                    ),
-                ]),
+                        ),
+                        mode_status,
+                        ft.ElevatedButton(
+                            "L\u01b0u c\u1ea5u h\u00ecnh",
+                            icon=ft.Icons.SAVE,
+                            style=button_style("warning"),
+                            height=40,
+                            on_click=save_mode,
+                        ),
+                    ],
+                ),
             ),
-
-            # Đăng xuất
             glass_container(
-                padding=16, radius=18,
-                content=ft.Column(spacing=10, controls=[
-                    ft.Text("Phiên làm việc", size=14, weight=ft.FontWeight.W_600),
-                    ft.Text("Kết thúc phiên và quay về đăng nhập.", size=11, color=ft.Colors.WHITE60),
-                    ft.ElevatedButton(
-                        "Đăng xuất",
-                        icon=ft.Icons.LOGOUT,
-                        style=button_style("danger"),
-                        on_click=lambda e: on_logout() if on_logout else None,
-                    ),
-                ]),
+                padding=14,
+                radius=16,
+                content=ft.Column(
+                    spacing=10,
+                    controls=[
+                        section_title("KEY", "Phi\u00ean l\u00e0m vi\u1ec7c"),
+                        ft.Text(
+                            "K\u1ebft th\u00fac phi\u00ean hi\u1ec7n t\u1ea1i v\u00e0 quay v\u1ec1 m\u00e0n h\u00ecnh \u0111\u0103ng nh\u1eadp.",
+                            size=11,
+                            color=ft.Colors.WHITE54,
+                        ),
+                        ft.ElevatedButton(
+                            "\u0110\u0103ng xu\u1ea5t",
+                            icon=ft.Icons.LOGOUT,
+                            style=button_style("danger"),
+                            height=40,
+                            on_click=lambda e: on_logout() if on_logout else None,
+                        ),
+                    ],
+                ),
             ),
         ],
     )

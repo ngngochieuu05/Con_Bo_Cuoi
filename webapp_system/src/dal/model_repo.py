@@ -1,7 +1,7 @@
 """
 Repository: model_ai
-LÆ°u thĂ´ng tin mĂ´ hĂ¬nh YOLO (YOLOv8/v11...) Ä‘á»™c láº­p theo loáº¡i.
-Ănh xáº¡ â†’ models.json
+Lưu thông tin mô hình YOLO (YOLOv8/v11...) độc lập theo loại.
+Ánh xạ -> models.json
 """
 from __future__ import annotations
 
@@ -11,49 +11,81 @@ from dal.base_repo import BaseRepo
 
 _repo = BaseRepo("models", pk_field="id_model")
 
-# Seed 3 mĂ´ hĂ¬nh YOLO Ä‘á»™c láº­p
+# Seed các mô hình YOLO độc lập (chỉ dùng khi DB chưa có bản ghi)
 _SEED = [
     {
         "id_model": 1,
-        "ten_mo_hinh": "Nháº­n diá»‡n bĂ²",
-        "loai_mo_hinh": "cattle_detect",    # cattle_detect | behavior | disease
+        "ten_mo_hinh": "Nhận diện bò",
+        "loai_mo_hinh": "cattle_detect",
         "phien_ban": "v1.0.0",
-        "trang_thai": "offline",            # online | testing | offline
-        "mo_ta": "PhĂ¡t hiá»‡n & Ä‘á»‹nh vá»‹ bĂ² trong khung hĂ¬nh (bounding box)",
-        "duong_dan_file": "",
+        "trang_thai": "online",
+        "mo_ta": "Phát hiện và định vị bò trong khung hình (bounding box)",
+        "duong_dan_file": "models_trained/model_tong_hop/train_yolov8m-seg_500epv2/weights/best.pt",
         "conf": 0.50,
         "iou": 0.45,
-        "updated_at": "2026-01-01T00:00:00",
+        "updated_at": "2026-05-01T00:00:00",
     },
     {
         "id_model": 2,
-        "ten_mo_hinh": "HĂ nh vi bĂ²",
+        "ten_mo_hinh": "Hành vi bò",
         "loai_mo_hinh": "behavior",
         "phien_ban": "v2.1.0",
         "trang_thai": "online",
-        "mo_ta": "Nháº­n diá»‡n hĂ nh vi: Ä‘á»©ng, náº±m, Ä‘i láº¡i, hĂºc, giao phá»‘i",
-        "duong_dan_file": "models/Dataset/model_22v_behavior.pt",
+        "mo_ta": "Nhận diện hành vi: đứng, nằm, đi lại, húc, giao phối",
+        "duong_dan_file": "models_trained/behavior/v1/train_yolov8s_200ep/weights/best.pt",
         "conf": 0.55,
         "iou": 0.45,
-        "updated_at": "2026-03-01T08:00:00",
+        "updated_at": "2026-05-01T00:00:00",
     },
     {
         "id_model": 3,
-        "ten_mo_hinh": "Bá»‡nh trĂªn bĂ²",
+        "ten_mo_hinh": "Bệnh trên bò",
         "loai_mo_hinh": "disease",
         "phien_ban": "v1.0.0",
         "trang_thai": "offline",
-        "mo_ta": "PhĂ¡t hiá»‡n dáº¥u hiá»‡u bá»‡nh qua hĂ¬nh áº£nh: gháº», sÆ°ng, tá»•n thÆ°Æ¡ng da",
+        "mo_ta": "Phát hiện dấu hiệu bệnh qua hình ảnh: ghẻ, sưng, tổn thương da",
+        "duong_dan_file": "models_trained/desease/jilsa2022_3class/insegment/train_yolov8m-seg_85ep/weights/best.pt",
+        "conf": 0.60,
+        "iou": 0.50,
+        "updated_at": "2026-05-01T00:00:00",
+    },
+    {
+        "id_model": 4,
+        "ten_mo_hinh": "Phân loại bệnh bò",
+        "loai_mo_hinh": "disease_cls",
+        "phien_ban": "v1.0.0",
+        "trang_thai": "offline",
+        "mo_ta": "Model classification chạy song song với segmentation để xếp hạng mức độ nghi ngờ bệnh.",
         "duong_dan_file": "",
         "conf": 0.60,
         "iou": 0.50,
-        "updated_at": "2026-01-01T00:00:00",
+        "updated_at": "2026-05-01T00:00:00",
+    },
+    {
+        "id_model": 5,
+        "ten_mo_hinh": "Sàng lọc bò khỏe/bệnh",
+        "loai_mo_hinh": "health_cls",
+        "phien_ban": "v1.0.0",
+        "trang_thai": "offline",
+        "mo_ta": "Model classification gate ở bước đầu để quyết định có cần chạy tiếp phân loại bệnh và segmentation hay không.",
+        "duong_dan_file": "",
+        "conf": 0.60,
+        "iou": 0.50,
+        "updated_at": "2026-05-01T00:00:00",
     },
 ]
 
 
 def init_seed():
     _repo.seed(_SEED)
+    _ensure_missing_seed_models()
+
+
+def _ensure_missing_seed_models() -> None:
+    for rec in _SEED:
+        loai = rec.get("loai_mo_hinh")
+        if loai and not _repo.find_one(loai_mo_hinh=loai):
+            _repo.insert(dict(rec))
 
 
 def get_all_models() -> list[dict]:
@@ -101,11 +133,14 @@ def update_model(id_model: int, updates: dict) -> dict | None:
 
 
 def update_model_status(id_model: int, trang_thai: str) -> dict | None:
-    return _repo.update(id_model, {"trang_thai": trang_thai, "updated_at": datetime.now().isoformat()})
+    return _repo.update(id_model, {
+        "trang_thai": trang_thai,
+        "updated_at": datetime.now().isoformat(),
+    })
 
 
 def update_model_config(id_model: int, conf: float, iou: float, duong_dan_file: str) -> dict | None:
-    """Cáº­p nháº­t cáº¥u hĂ¬nh YOLO (conf, iou, .pt path)."""
+    """Cập nhật cấu hình YOLO (conf, iou, đường dẫn .pt)."""
     return _repo.update(id_model, {
         "conf": round(float(conf), 3),
         "iou": round(float(iou), 3),
@@ -116,7 +151,3 @@ def update_model_config(id_model: int, conf: float, iou: float, duong_dan_file: 
 
 def count_online() -> int:
     return len(get_models_by_status("online"))
-
-
-def delete_model(id_model: int) -> bool:
-    return _repo.delete(id_model)

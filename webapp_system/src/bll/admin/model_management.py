@@ -57,7 +57,7 @@ def deactivate_model(id_model: int) -> tuple[bool, str]:
     return False, "Không tìm thấy model trong DB."
 
 
-def update_model_config(id_model: int, **kwargs) -> tuple[bool, str]:
+def update_model_fields(id_model: int, **kwargs) -> tuple[bool, str]:
     """
     Cập nhật cấu hình model (conf, iou, phien_ban, mo_ta, ...).
     Trả về (success, message).
@@ -133,9 +133,9 @@ def _clear_ai_cache_if_disease(id_model: int):
     except Exception:
         pass
     try:
-        # Xoá thêm cache tu_van_ai nếu là disease
+        # Xoá thêm cache tu_van_ai nếu là nhóm model bệnh
         rec = get_model_by_id(id_model)
-        if rec and rec.get("loai_mo_hinh") == "disease":
+        if rec and rec.get("loai_mo_hinh") in {"disease", "disease_cls", "health_cls"}:
             from bll.user.farmer.tu_van_ai import clear_model_cache as _clr
             _clr()
     except Exception:

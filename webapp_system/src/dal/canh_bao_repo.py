@@ -61,4 +61,5 @@ def resolve_alert(id_canh_bao: int) -> dict | None:
 
 
 def count_open() -> int:
+    """Đếm số cảnh báo chưa xử lý — dùng cho dashboard và Telegram bot."""
     return len(get_by_status("CHUA_XU_LY"))

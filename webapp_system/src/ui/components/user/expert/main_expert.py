@@ -2,6 +2,7 @@ import flet as ft
 
 from ui.components.user.expert.consulting_review import build_consulting_review
 from ui.components.user.expert.dashboard import build_expert_dashboard
+from ui.components.user.expert.error_sample_review import build_error_sample_review
 from ui.components.user.expert.profile_expert import build_profile_expert
 from ui.components.user.expert.raw_data_review import build_raw_data_review
 from ui.components.user.expert.settings import build_expert_settings
@@ -11,7 +12,7 @@ from ui.theme import build_role_shell
 
 def ExpertMainScreen(page: ft.Page, on_logout=None):
     views = {
-        "dashboard": build_expert_dashboard,
+        "dashboard": lambda: build_expert_dashboard(page),
         "utilities": build_expert_utilities,
         "settings": build_expert_settings,
     }
@@ -19,6 +20,7 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
         ("dashboard", "Tổng quan", "DASHBOARD"),
         ("raw_data", "Dữ liệu", "FACT_CHECK"),
         ("consulting", "Tư vấn", "RECORD_VOICE_OVER"),
+        ("error_samples", "Mẫu lỗi", "BUG_REPORT"),
         ("utilities", "Tiện ích", "BUILD"),
         ("settings", "Cài đặt", "SETTINGS"),
     ]
@@ -32,15 +34,21 @@ def ExpertMainScreen(page: ft.Page, on_logout=None):
 
     def render():
         if selected["key"] == "profile":
-            content_holder.content = build_profile_expert(page, on_back=lambda: select_view("dashboard"))
+            content_holder.content = build_profile_expert(
+                page, on_back=lambda: select_view("dashboard")
+            )
         elif selected["key"] == "settings":
             content_holder.content = build_expert_settings(on_logout=on_logout)
         elif selected["key"] == "raw_data":
             content_holder.content = build_raw_data_review(page=page)
         elif selected["key"] == "consulting":
             content_holder.content = build_consulting_review(page=page)
+        elif selected["key"] == "error_samples":
+            content_holder.content = build_error_sample_review(page=page)
         else:
-            content_holder.content = views.get(selected["key"], build_expert_dashboard)()
+            content_holder.content = views.get(
+                selected["key"], lambda: build_expert_dashboard(page)
+            )()
         root.content = build_role_shell(
             role_title="CHUYÊN GIA",
             role_subtitle="Đánh giá và tư vấn chuyên môn",

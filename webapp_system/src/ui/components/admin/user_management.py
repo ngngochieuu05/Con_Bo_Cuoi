@@ -15,6 +15,7 @@ from bll.admin.model_management import (
 _MODEL_META = {
     "cattle_detect": ("Nhận diện bò",  ft.Icons.PETS,           PRIMARY),
     "behavior":      ("Hành vi bò",    ft.Icons.DIRECTIONS_RUN, SECONDARY),
+    "disease_cls":   ("Phân loại bệnh", ft.Icons.PSYCHOLOGY_ALT, WARNING),
 }
 
 _ROLE_MAP = {
@@ -398,6 +399,36 @@ def build_user_management():
         label_style=ft.TextStyle(color=ft.Colors.WHITE70, size=12),
         expand=True,
     )
+    f_tg_chatid = inline_field("Telegram Chat ID (tùy chọn)", ft.Icons.TELEGRAM)
+    oa_link_text = ft.Text("", size=11, color=ft.Colors.CYAN_300, selectable=True)
+    oa_msg       = ft.Text("", size=11, color=ft.Colors.GREEN_300)
+
+    def _gen_oa_link(e):
+        uname = (f_uname.value or "").strip()
+        if not uname:
+            oa_msg.value = "Nhập tên đăng nhập trước"
+            oa_msg.color = ft.Colors.AMBER_300
+            oa_msg.update(); return
+        try:
+            from bll.services.telegram_link import get_deep_link
+            link = get_deep_link(uname)
+            oa_link_text.value = link
+            oa_link_text.update()
+            oa_msg.value = "Link có hiệu lực 24h — gửi cho người dùng để liên kết Telegram"
+            oa_msg.color = ft.Colors.CYAN_300
+            oa_msg.update()
+        except Exception as ex:
+            oa_msg.value = f"Lỗi: {ex}"
+            oa_msg.color = ft.Colors.RED_300
+            oa_msg.update()
+
+    def _copy_oa_link(e):
+        if oa_link_text.value and e.page:
+            e.page.set_clipboard(oa_link_text.value)
+            oa_msg.value = "Đã sao chép link!"
+            oa_msg.color = ft.Colors.GREEN_300
+            oa_msg.update()
+
     btn_save = ft.ElevatedButton(
         "Lưu tài khoản", icon=ft.Icons.SAVE,
         style=button_style("primary"), height=40,
@@ -431,12 +462,27 @@ def build_user_management():
             msg.value = f"Tài khoản '{uname}' đã tồn tại."
             msg.color = ft.Colors.RED_300
             msg.update(); return
-        create_user(uname, pwd, f_role.value or "farmer", f_hoten.value or "")
-        msg.value = f"Đã thêm '{uname}' thành công."
+        ok, result_msg = create_user(uname, pwd, f_role.value or "farmer", f_hoten.value or "")
+        if not ok:
+            msg.value = result_msg
+            msg.color = ft.Colors.RED_300
+            msg.update(); return
+        new_user = get_user_by_username(uname)
+        # Lưu Telegram Chat ID nếu được nhập
+        tg_cid = (f_tg_chatid.value or "").strip()
+        if tg_cid and new_user:
+            try:
+                update_user(new_user.get("id_user"), {"telegram_chat_id": tg_cid})
+            except Exception:
+                pass
+        msg.value = result_msg
         msg.color = ft.Colors.GREEN_300
         msg.update()
-        f_uname.value = f_pwd.value = f_hoten.value = ""
-        for f in (f_uname, f_pwd, f_hoten): f.update()
+        f_uname.value = f_pwd.value = f_hoten.value = f_tg_chatid.value = ""
+        oa_link_text.value = ""
+        oa_msg.value = ""
+        for f in (f_uname, f_pwd, f_hoten, f_tg_chatid, oa_link_text, oa_msg):
+            f.update()
         form_ref.current.visible = False
         form_ref.current.update()
         refresh(search_field.value or "", active_filter["role"])
@@ -493,6 +539,41 @@ def build_user_management():
                 section_title("PERSON_ADD", "Thêm tài khoản mới"),
                 ft.Row(spacing=8, controls=[f_uname, f_pwd]),
                 ft.Row(spacing=8, controls=[f_hoten, f_role]),
+                # ── OA Telegram section ──────────────────────────────
+                ft.Divider(
+                    color=ft.Colors.with_opacity(0.10, ft.Colors.WHITE), height=1,
+                ),
+                ft.Row(tight=True, spacing=5, controls=[
+                    ft.Icon(ft.Icons.TELEGRAM, size=13, color=ft.Colors.CYAN_300),
+                    ft.Text("Liên kết tài khoản OA (Telegram)",
+                            size=12, weight=ft.FontWeight.W_600,
+                            color=ft.Colors.CYAN_300),
+                ]),
+                ft.Row(spacing=8, controls=[
+                    f_tg_chatid,
+                    ft.ElevatedButton(
+                        "Tạo link",
+                        icon=ft.Icons.LINK,
+                        style=ft.ButtonStyle(
+                            bgcolor=ft.Colors.with_opacity(0.18, ft.Colors.CYAN_400),
+                            color=ft.Colors.CYAN_200,
+                            shape=ft.RoundedRectangleBorder(radius=10),
+                        ),
+                        height=40,
+                        on_click=_gen_oa_link,
+                        tooltip="Tạo deep-link để người dùng liên kết Telegram",
+                    ),
+                    ft.IconButton(
+                        ft.Icons.COPY,
+                        icon_size=18,
+                        icon_color=ft.Colors.WHITE54,
+                        tooltip="Sao chép link",
+                        on_click=_copy_oa_link,
+                    ),
+                ]),
+                oa_link_text,
+                oa_msg,
+                # ── Save ─────────────────────────────────────────────
                 btn_save,
             ]),
         ),
