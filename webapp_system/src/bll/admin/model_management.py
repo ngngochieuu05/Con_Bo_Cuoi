@@ -11,7 +11,6 @@ from dal.model_repo import (
     get_all_models,
     get_model_by_id,
     get_model_by_type,
-    resolve_model_path,
     update_model as _dal_update_model,
     update_model_status as _dal_update_status,
     update_model_config as _dal_update_config,
@@ -58,7 +57,7 @@ def deactivate_model(id_model: int) -> tuple[bool, str]:
     return False, "Không tìm thấy model trong DB."
 
 
-def update_model_config(id_model: int, **kwargs) -> tuple[bool, str]:
+def update_model_fields(id_model: int, **kwargs) -> tuple[bool, str]:
     """
     Cập nhật cấu hình model (conf, iou, phien_ban, mo_ta, ...).
     Trả về (success, message).
@@ -96,60 +95,6 @@ def get_model_status_summary() -> dict:
     }
 
 
-def promote_model(id_model: int) -> tuple[bool, str]:
-    """Promote a model to production for its type and demote current online siblings."""
-    target = get_model_by_id(id_model)
-    if not target:
-        return False, "Khong tim thay model."
-
-    resolved_path = resolve_model_path(target.get("duong_dan_file", ""))
-    if not resolved_path:
-        return False, "Model chua co duong dan file .pt."
-
-    model_type = target.get("loai_mo_hinh", "")
-    siblings = [model for model in get_all_models() if model.get("loai_mo_hinh") == model_type]
-    for sibling in siblings:
-        sibling_id = sibling.get("id_model")
-        if sibling_id == id_model:
-            continue
-        if sibling.get("trang_thai") == "online":
-            _dal_update_model(
-                sibling_id,
-                {
-                    "trang_thai": "offline",
-                    "updated_at": datetime.now().isoformat(),
-                },
-            )
-
-    result = _dal_update_model(
-        id_model,
-        {
-            "duong_dan_file": resolved_path,
-            "trang_thai": "online",
-            "updated_at": datetime.now().isoformat(),
-        },
-    )
-    if result:
-        _clear_ai_cache_if_disease(id_model)
-        return True, "Da dua model len production."
-    return False, "Khong the cap nhat model."
-
-
-def set_model_testing(id_model: int) -> tuple[bool, str]:
-    """Mark a model as testing without promoting it to production."""
-    result = _dal_update_model(
-        id_model,
-        {
-            "trang_thai": "testing",
-            "updated_at": datetime.now().isoformat(),
-        },
-    )
-    if result:
-        _clear_ai_cache_if_disease(id_model)
-        return True, "Da chuyen model sang testing."
-    return False, "Khong the cap nhat model."
-
-
 # ── Thin wrappers với chữ ký khớp DAL — dùng từ UI ──────────────────────────
 
 def update_model_status(id_model: int, trang_thai: str) -> dict | None:
@@ -180,11 +125,18 @@ def update_model(id_model: int, updates: dict) -> dict | None:
 # ─── internal ────────────────────────────────────────────────────────────────
 
 def _clear_ai_cache_if_disease(id_model: int):
-    """Xoá cache YOLO khi model disease bị thay đổi."""
+    """Xoá cache YOLO khi bất kỳ model nào bị thay đổi."""
     try:
+        # Xoá cache monitor_service (cattle_detect, behavior, disease)
+        from bll.services.monitor_service import clear_model_cache
+        clear_model_cache()
+    except Exception:
+        pass
+    try:
+        # Xoá thêm cache tu_van_ai nếu là nhóm model bệnh
         rec = get_model_by_id(id_model)
-        if rec and rec.get("loai_mo_hinh") == "disease":
-            from bll.user.farmer.tu_van_ai import clear_model_cache
-            clear_model_cache()
+        if rec and rec.get("loai_mo_hinh") in {"disease", "disease_cls", "health_cls"}:
+            from bll.user.farmer.tu_van_ai import clear_model_cache as _clr
+            _clr()
     except Exception:
         pass

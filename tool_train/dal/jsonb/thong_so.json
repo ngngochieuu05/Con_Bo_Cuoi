@@ -1,0 +1,107 @@
+{
+  "groups": [
+    {
+      "id": "test",
+      "name": "Test",
+      "collapsed": false,
+      "models": [
+        {
+          "key": "m_custom_cnn_jilsa_bes",
+          "ten": "1.jilsa_re-implement_CNN",
+          "duong_dan": "D:/DACS/SSBBKH/model_trained/jilsa_CNN_v2/custom_cnn_jilsa_best.pth",
+          "duong_dan_dataset": "D:/DACS/SSBBKH/dataset/jilsa/class/extract/80-10-10/yolov8_jilsa_80-10-10",
+          "task": "classify",
+          "mo_ta": "",
+          "layers": null,
+          "parameters": null,
+          "gflops": null
+        },
+        {
+          "key": "m_best",
+          "ten": "1.jilsa_update_yolov8_v1",
+          "duong_dan": "D:/DACS/SSBBKH/model_trained/jilsa_yolov8_v1/train_yolov8n-cls_50ep/weights/best.pt",
+          "duong_dan_dataset": "D:/DACS/SSBBKH/dataset/jilsa/class/extract/80-10-10/yolov8_jilsa_80-10-10",
+          "task": "classify",
+          "mo_ta": "",
+          "layers": null,
+          "parameters": null,
+          "gflops": null
+        },
+        {
+          "key": "m_custom_cnn_jilsa_bes",
+          "ten": "1.jilsa_re-implement_CNN_v2",
+          "duong_dan": "D:/DACS/SSBBKH/model_trained/jilsa_CNN_new_v2/custom_cnn_jilsa_best.pth",
+          "duong_dan_dataset": "D:/DACS/SSBBKH/dataset/dataset_new/jilsa/extract/70-15-15",
+          "task": "classify",
+          "mo_ta": "",
+          "layers": null,
+          "parameters": null,
+          "gflops": null,
+          "star": false
+        },
+        {
+          "key": "m_best",
+          "ten": "1.jilsa_update_yolov8_v2",
+          "duong_dan": "D:/DACS/SSBBKH/model_trained/jilsa_yolov8_new_v1/train_yolov8n-cls_50ep/weights/best.pt",
+          "duong_dan_dataset": "D:/DACS/SSBBKH/dataset/dataset_new/jilsa/extract/70-15-15",
+          "task": "classify",
+          "mo_ta": "",
+          "layers": null,
+          "parameters": null,
+          "gflops": null
+        },
+        {
+          "key": "m_mobilenetv2_plos_bes",
+          "ten": "2.plos_re-implement_netmobile_v1",
+          "duong_dan": "D:/DACS/SSBBKH/model_trained/plos_netmb_v2/mobilenetv2_plos_best.pth",
+          "duong_dan_dataset": "D:/DACS/SSBBKH/dataset/plos/class/extract/70-0-30",
+          "task": "classify",
+          "mo_ta": "",
+          "layers": null,
+          "parameters": null,
+          "gflops": null
+        },
+        {
+          "key": "m_best",
+          "ten": "2.plos_update_yolov8_v1",
+          "duong_dan": "D:/DACS/SSBBKH/model_trained/plos_yolov8_v1/train_yolov8n-cls_10ep/weights/best.pt",
+          "duong_dan_dataset": "D:/DACS/SSBBKH/dataset/plos/class/extract/70-0-30",
+          "task": "classify",
+          "mo_ta": "",
+          "layers": null,
+          "parameters": null,
+          "gflops": null
+        },
+        {
+          "key": "m_mobilenetv2_plos_bes",
+          "ten": "2.plos_re-implement_netmobile_v2",
+          "duong_dan": "D:/DACS/SSBBKH/model_trained/plos_netmb_v2/mobilenetv2_plos_best.pth",
+          "duong_dan_dataset": "D:/DACS/SSBBKH/dataset/dataset_new/plos/extract/70-15-15",
+          "task": "classify",
+          "mo_ta": "",
+          "layers": null,
+          "parameters": null,
+          "gflops": null
+        },
+        {
+          "key": "m_best",
+          "ten": "2.plos_update_yolov8_v2",
+          "duong_dan": "D:/DACS/SSBBKH/model_trained/plos_yolov8_new_v2/train_yolov8n-cls_50ep/weights/best.pt",
+          "duong_dan_dataset": "D:/DACS/SSBBKH/dataset/dataset_new/plos/extract/70-15-15",
+          "task": "classify",
+          "mo_ta": "",
+          "layers": null,
+          "parameters": null,
+          "gflops": null
+        }
+      ]
+    }
+  ],
+  "cai_dat_chung": {
+    "device": "0",
+    "imgsz": 640,
+    "conf": 0.5,
+    "iou": 0.45,
+    "half": false
+  }
+}

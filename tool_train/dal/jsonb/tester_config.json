@@ -1,0 +1,11 @@
+{
+  "model_path": "D:/DACS/Dataset/Cattle Desease.v2i.yolov8/train_yolov8m-seg_300ep/weights/best.pt",
+  "task": "Instance Segmentation",
+  "device": "0",
+  "imgsz": 640,
+  "conf": 0.5,
+  "iou": 0.5,
+  "opacity_pct": 75,
+  "half": false,
+  "save_result": false
+}

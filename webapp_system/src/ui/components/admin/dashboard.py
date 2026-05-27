@@ -1,283 +1,219 @@
 import flet as ft
 
-from bll.admin.dashboard_service import get_all_cameras_info, get_dashboard_stats, get_recent_alerts
-from ui.theme import DANGER, PRIMARY, SECONDARY, WARNING, glass_container, page_header, status_badge
+from bll.admin.dashboard_service import (
+    get_all_cameras_info,
+    get_dashboard_stats,
+    get_recent_activity,
+    get_recent_alerts,
+)
+from bll.services.system_overview_service import get_system_overview
+from ui.theme import DANGER, PRIMARY, SECONDARY, WARNING, empty_state, fmt_dt, glass_container, metric_card, section_title, status_badge
+
 
 _CAM_STATUS = {
-    "online": ("On", "primary"),
-    "warning": ("Can xem", "warning"),
-    "offline": ("Offline", "danger"),
+    "online": ("Online", "primary"),
+    "warning": ("Cần xem", "warning"),
+    "offline": ("Cảnh báo", "danger"),
 }
+
 _ALERT_LABEL = {
-    "cow_fight": "Va cham",
-    "cow_lie": "Nam lau",
-    "cow_sick": "Suc khoe",
-    "heat_high": "Nhiet cao",
+    "cow_fight": "Va chạm",
+    "cow_lie": "Nằm lâu",
+    "cow_sick": "Sức khỏe",
+    "heat_high": "Nhiệt cao",
 }
+
 _ALERT_STATUS = {
-    "CHUA_XU_LY": ("Mo", "danger"),
-    "DA_XU_LY": ("Xong", "primary"),
-    "QUA_HAN": ("Qua han", "warning"),
+    "CHUA_XU_LY": ("Chưa xử lý", "danger"),
+    "DA_XU_LY": ("Đã xử lý", "primary"),
+    "QUA_HAN": ("Quá hạn", "warning"),
 }
 
 
-def _metric_tile(title: str, value: str, detail: str, icon, accent: str) -> ft.Control:
-    return ft.Container(
-        expand=1,
-        padding=16,
-        border_radius=18,
-        bgcolor=ft.Colors.with_opacity(0.12, accent),
-        border=ft.border.all(1, ft.Colors.with_opacity(0.22, accent)),
-        content=ft.Column(
-            tight=True,
-            spacing=10,
-            controls=[
-                ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[
-                        ft.Text(title, size=11, color="#C2D0D8", weight=ft.FontWeight.W_600),
-                        ft.Container(
-                            width=30,
-                            height=30,
-                            border_radius=15,
-                            bgcolor=ft.Colors.with_opacity(0.18, accent),
-                            alignment=ft.alignment.center,
-                            content=ft.Icon(icon, size=16, color=accent),
-                        ),
-                    ],
-                ),
-                ft.Text(value, size=28, weight=ft.FontWeight.W_700),
-                ft.Text(detail, size=10, color=ft.Colors.WHITE54),
-            ],
-        ),
-    )
-
-
-def _section_card(title: str, subtitle: str, rows: list[ft.Control]) -> ft.Control:
-    return glass_container(
-        padding=14,
-        radius=18,
-        content=ft.Column(
-            spacing=10,
-            controls=[
-                ft.Column(
-                    tight=True,
-                    spacing=2,
-                    controls=[
-                        ft.Text(title, size=15, weight=ft.FontWeight.W_700),
-                        ft.Text(subtitle, size=10, color=ft.Colors.WHITE54),
-                    ],
-                ),
-                *rows,
-            ],
-        ),
-    )
-
-
-def _alert_row(alert: dict) -> ft.Control:
-    label, kind = _ALERT_STATUS.get(alert.get("trang_thai"), ("Mo", "warning"))
-    return ft.Container(
-        padding=ft.padding.symmetric(horizontal=10, vertical=10),
-        border_radius=14,
-        bgcolor=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
-        border=ft.border.all(1, ft.Colors.with_opacity(0.06, ft.Colors.WHITE)),
-        content=ft.Row(
-            spacing=10,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            controls=[
-                ft.Container(
-                    width=30,
-                    height=30,
-                    border_radius=15,
-                    bgcolor=ft.Colors.with_opacity(0.16, DANGER),
-                    alignment=ft.alignment.center,
-                    content=ft.Icon(ft.Icons.WARNING_AMBER, size=16, color=DANGER),
-                ),
-                ft.Column(
-                    expand=True,
-                    tight=True,
-                    spacing=2,
-                    controls=[
-                        ft.Text(_ALERT_LABEL.get(alert.get("loai_canh_bao"), "Canh bao"), size=12, weight=ft.FontWeight.W_700),
-                        ft.Text(alert.get("created_at", "")[:16].replace("T", " "), size=10, color=ft.Colors.WHITE54),
-                    ],
-                ),
-                status_badge(label, kind),
-            ],
-        ),
-    )
-
-
-def _camera_row(camera: dict) -> ft.Control:
-    label, kind = _CAM_STATUS.get(camera.get("trang_thai"), ("Mo", "warning"))
-    return ft.Container(
-        padding=ft.padding.symmetric(horizontal=10, vertical=10),
-        border_radius=14,
-        bgcolor=ft.Colors.with_opacity(0.06, ft.Colors.WHITE),
-        border=ft.border.all(1, ft.Colors.with_opacity(0.06, ft.Colors.WHITE)),
-        content=ft.Row(
-            spacing=10,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            controls=[
-                ft.Container(
-                    width=30,
-                    height=30,
-                    border_radius=15,
-                    bgcolor=ft.Colors.with_opacity(0.16, PRIMARY),
-                    alignment=ft.alignment.center,
-                    content=ft.Icon(ft.Icons.VIDEOCAM, size=16, color=PRIMARY),
-                ),
-                ft.Column(
-                    expand=True,
-                    tight=True,
-                    spacing=2,
-                    controls=[
-                        ft.Text(str(camera.get("id_camera", "-")), size=12, weight=ft.FontWeight.W_700),
-                        ft.Text(camera.get("khu_vuc_chuong", "-"), size=10, color=ft.Colors.WHITE54),
-                    ],
-                ),
-                status_badge(label, kind),
-            ],
-        ),
-    )
-
-
-def _action_tile(label: str, note: str, icon, accent: str) -> ft.Control:
-    return ft.Container(
-        expand=1,
-        padding=14,
-        border_radius=16,
-        bgcolor=ft.Colors.with_opacity(0.10, accent),
-        border=ft.border.all(1, ft.Colors.with_opacity(0.18, accent)),
-        content=ft.Column(
-            tight=True,
-            spacing=8,
-            controls=[
-                ft.Row(
-                    spacing=8,
-                    controls=[
-                        ft.Icon(icon, size=16, color=accent),
-                        ft.Text(label, size=12, weight=ft.FontWeight.W_700),
-                    ],
-                ),
-                ft.Text(note, size=10, color=ft.Colors.WHITE60),
-            ],
-        ),
-    )
+def _metric_grid(items: list[ft.Control]) -> ft.Column:
+    rows: list[ft.Control] = []
+    for i in range(0, len(items), 2):
+        pair = items[i:i + 2]
+        rows.append(
+            ft.Row(
+                spacing=8,
+                controls=[
+                    ft.Container(expand=1, content=pair[0]),
+                    ft.Container(expand=1, content=pair[1]) if len(pair) > 1 else ft.Container(expand=1),
+                ],
+            )
+        )
+    return ft.Column(spacing=8, controls=rows)
 
 
 def build_admin_dashboard():
     stats = get_dashboard_stats()
-    alerts = sorted(get_recent_alerts(), key=lambda item: item.get("created_at", ""), reverse=True)
-    cameras = get_all_cameras_info()
-    attention_cameras = [camera for camera in cameras if camera.get("trang_thai") != "online"][:4]
-    offline_count = sum(1 for camera in cameras if camera.get("trang_thai") == "offline")
-    warning_count = sum(1 for camera in cameras if camera.get("trang_thai") == "warning")
-    open_alert_count = sum(1 for alert in alerts if alert.get("trang_thai") == "CHUA_XU_LY")
-    overdue_alert_count = sum(1 for alert in alerts if alert.get("trang_thai") == "QUA_HAN")
+    overview = get_system_overview(role="admin")
 
-    if overdue_alert_count:
-        hero_tone = DANGER
-        hero_title = "Can day xu ly gap"
-        hero_note = f"{overdue_alert_count} alert qua han dang can admin chup quyet dinh."
-    elif offline_count or open_alert_count:
-        hero_tone = WARNING
-        hero_title = "Ca truc dang co viec ton"
-        hero_note = (
-            f"{offline_count} camera offline, {open_alert_count} alert mo. "
-            "Nen uu tien check camera va phan cong xu ly."
-        )
-    else:
-        hero_tone = PRIMARY
-        hero_title = "He thong dang on dinh"
-        hero_note = "Khong co muc nao vuot nguong. Dashboard nay chi giu nhung diem can quet nhanh."
+    kpi_row1 = _metric_grid([
+        metric_card("Tài khoản", str(stats["users"]), ft.Icons.GROUPS, SECONDARY),
+        metric_card("Mô hình", f"{stats['models_online']}/{stats['models_total']}", ft.Icons.SMART_TOY, PRIMARY),
+        metric_card("Cảnh báo mở", str(stats["alerts_open"]), ft.Icons.WARNING_AMBER, WARNING),
+    ])
+    kpi_row2 = _metric_grid([
+        metric_card("Camera", f"{stats['cameras_online']}/{stats['cameras']}", ft.Icons.VIDEOCAM, PRIMARY),
+        metric_card("Hôm nay", str(stats["alerts_today"]), ft.Icons.NOTIFICATIONS_ACTIVE, WARNING),
+        metric_card("Offline", str(stats["cameras_offline"]), ft.Icons.VIDEOCAM_OFF, DANGER if stats["cameras_offline"] else SECONDARY),
+    ])
 
-    return ft.Column(
-        expand=True,
-        spacing=14,
+    system_section = ft.Column(
+        spacing=8,
         controls=[
-            page_header(
-                "Tong quan admin",
-                "Bo cuc dieu hanh mobile-first: uu tien viec can quyet dinh thay vi nhieu card trang tri.",
-                icon_name="DASHBOARD",
+            section_title("SETTINGS_ETHERNET", "Thông số hệ thống"),
+            _metric_grid([
+                metric_card("Người dùng", str(overview.get("users_total", 0)), ft.Icons.GROUPS, SECONDARY),
+                metric_card("Chuyên gia", str(overview.get("experts_total", 0)), ft.Icons.SUPPORT_AGENT, PRIMARY),
+                metric_card("Nông hộ", str(overview.get("farmers_total", 0)), ft.Icons.AGRICULTURE, PRIMARY),
+                metric_card("Hoạt động hôm nay", str(overview.get("activity_today", 0)), ft.Icons.TIMELINE, WARNING),
+            ]),
+            ft.Text(
+                f"Server {overview.get('server_url', '--')} | app {overview.get('app_mode', '--')}:{overview.get('app_port', '--')} | YOLO {overview.get('yolo_mode', '--')}",
+                size=11,
+                color=ft.Colors.WHITE60,
             ),
-            glass_container(
-                padding=16,
-                radius=20,
-                content=ft.Column(
-                    spacing=12,
+        ],
+    )
+
+    cameras = get_all_cameras_info()
+    camera_controls: list[ft.Control] = []
+    for cam in cameras[:8]:
+        st = cam.get("trang_thai", "offline")
+        label, kind = _CAM_STATUS.get(st, ("--", "warning"))
+        camera_controls.append(
+            ft.Container(
+                padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                border_radius=14,
+                bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+                border=ft.border.all(1, ft.Colors.with_opacity(0.10, ft.Colors.WHITE)),
+                content=ft.Row(
+                    spacing=10,
+                    vertical_alignment=ft.CrossAxisAlignment.START,
                     controls=[
-                        ft.Row(
-                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            vertical_alignment=ft.CrossAxisAlignment.START,
+                        ft.Column(
+                            expand=True,
+                            spacing=3,
+                            tight=True,
                             controls=[
-                                ft.Column(
-                                    expand=True,
-                                    tight=True,
-                                    spacing=4,
-                                    controls=[
-                                        ft.Text(hero_title, size=18, weight=ft.FontWeight.W_700),
-                                        ft.Text(hero_note, size=11, color=ft.Colors.WHITE70),
-                                    ],
-                                ),
-                                status_badge("Overdue" if overdue_alert_count else "Stable", "danger" if overdue_alert_count else "primary"),
+                                ft.Text(cam.get("id_camera", "--"), size=12, weight=ft.FontWeight.W_600),
+                                ft.Text(cam.get("khu_vuc_chuong", "--"), size=11, color=ft.Colors.WHITE70, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
                             ],
                         ),
-                        ft.Row(
-                            spacing=8,
-                            wrap=True,
+                        ft.Column(
+                            tight=True,
+                            spacing=3,
+                            horizontal_alignment=ft.CrossAxisAlignment.END,
                             controls=[
-                                status_badge(f"{offline_count} camera offline", "danger" if offline_count else "neutral"),
-                                status_badge(f"{warning_count} camera can xem", "warning" if warning_count else "neutral"),
-                                status_badge(f"{open_alert_count} alert mo", "warning" if open_alert_count else "neutral"),
+                                status_badge(label, kind),
+                                ft.Text(fmt_dt(cam.get("updated_at", "")), size=10, color=ft.Colors.WHITE54),
                             ],
                         ),
                     ],
                 ),
-            ),
+            )
+        )
+
+    alerts = sorted(get_recent_alerts(), key=lambda a: a.get("created_at", ""), reverse=True)[:6]
+    alert_controls: list[ft.Control] = []
+    for alert in alerts:
+        label = _ALERT_LABEL.get(alert.get("loai_canh_bao", ""), alert.get("loai_canh_bao", "--"))
+        st_label, st_kind = _ALERT_STATUS.get(alert.get("trang_thai", ""), ("--", "warning"))
+        alert_controls.append(
+            ft.Container(
+                padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                border_radius=14,
+                bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+                border=ft.border.all(1, ft.Colors.with_opacity(0.10, ft.Colors.WHITE)),
+                content=ft.Row(
+                    spacing=10,
+                    vertical_alignment=ft.CrossAxisAlignment.START,
+                    controls=[
+                        ft.Column(
+                            expand=True,
+                            spacing=3,
+                            tight=True,
+                            controls=[
+                                ft.Text(label, size=12, weight=ft.FontWeight.W_600),
+                                ft.Text(f"#{alert.get('id_canh_bao', '')} · {fmt_dt(alert.get('created_at', ''))}", size=10, color=ft.Colors.WHITE54),
+                            ],
+                        ),
+                        status_badge(st_label, st_kind),
+                    ],
+                ),
+            )
+        )
+
+    activities = get_recent_activity(8)
+    activity_controls = []
+    for act in activities:
+        label = act.get("label", act.get("action", "--"))
+        kind = act.get("kind", "warning")
+        activity_controls.append(
+            ft.Container(
+                padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                border_radius=14,
+                bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+                border=ft.border.all(1, ft.Colors.with_opacity(0.10, ft.Colors.WHITE)),
+                content=ft.Row(
+                    spacing=10,
+                    vertical_alignment=ft.CrossAxisAlignment.START,
+                    controls=[
+                        ft.Column(
+                            expand=True,
+                            spacing=3,
+                            tight=True,
+                            controls=[
+                                ft.Text(act.get("details", "") or label, size=12, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                                ft.Text(fmt_dt(act.get("timestamp", "")), size=10, color=ft.Colors.WHITE54),
+                            ],
+                        ),
+                        status_badge(label, kind),
+                    ],
+                ),
+            )
+        )
+
+    return ft.Column(
+        expand=True,
+        spacing=16,
+        scroll=ft.ScrollMode.AUTO,
+        controls=[
             ft.Row(
-                spacing=10,
-                wrap=True,
-                run_spacing=10,
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 controls=[
-                    _metric_tile("Tai khoan", str(stats["users"]), "Tong nhan su co quyen trong he thong", ft.Icons.GROUPS, SECONDARY),
-                    _metric_tile("Model production", str(stats["models_online"]), "So model dang online cho van hanh that", ft.Icons.SMART_TOY, PRIMARY),
-                    _metric_tile("Alert mo", str(stats["alerts_open"]), "Bao gom ca muc can phan cong va can xac nhan", ft.Icons.WARNING_AMBER, WARNING),
-                ],
-            ),
-            _section_card(
-                "Hang doi uu tien",
-                "Nhung muc can admin quet truoc khi di sang modules chi tiet.",
-                [
-                    _alert_row(alert) for alert in alerts[:4]
-                ] or [
-                    ft.Text("Khong co alert dang mo.", size=11, color=ft.Colors.WHITE54)
-                ],
-            ),
-            _section_card(
-                "Camera can xem",
-                "Chi hien thi camera warning/offline de tranh lam loang dashboard.",
-                [
-                    _camera_row(camera) for camera in attention_cameras
-                ] or [
-                    ft.Text("Tat ca camera dang on.", size=11, color=ft.Colors.WHITE54)
-                ],
-            ),
-            _section_card(
-                "Tac vu nhanh",
-                "Lo trinh thao tac de dieu huong qua cac module con.",
-                [
-                    ft.Row(
-                        spacing=10,
-                        wrap=True,
-                        run_spacing=10,
+                    ft.Column(
+                        tight=True,
+                        spacing=1,
                         controls=[
-                            _action_tile("Tai khoan", "Soat role, reset mat khau, xoa tai khoan treo.", ft.Icons.GROUPS, SECONDARY),
-                            _action_tile("Model registry", "Xac nhan candidate, apply production, disable model loi.", ft.Icons.SMART_TOY, PRIMARY),
-                            _action_tile("Train queue", "Theo doi job train, retry va soat pipeline dataset.", ft.Icons.MODEL_TRAINING, WARNING),
+                            ft.Text("Bảng điều khiển", size=22, weight=ft.FontWeight.W_700),
+                            ft.Text("Tổng quan hệ thống", size=11, color=ft.Colors.WHITE54),
                         ],
-                    )
+                    ),
+                    ft.Icon(ft.Icons.DASHBOARD, color=ft.Colors.WHITE24, size=28),
                 ],
+            ),
+            kpi_row1,
+            kpi_row2,
+            glass_container(padding=14, radius=16, content=system_section),
+            glass_container(
+                padding=14,
+                radius=16,
+                content=ft.Column(spacing=8, controls=[section_title("VIDEOCAM", "Trạng thái camera"), *(camera_controls or [empty_state("Chưa có camera nào")])]),
+            ),
+            glass_container(
+                padding=14,
+                radius=16,
+                content=ft.Column(spacing=8, controls=[section_title("NOTIFICATIONS_ACTIVE", "Cảnh báo gần đây"), *(alert_controls or [empty_state("Không có cảnh báo")])]),
+            ),
+            glass_container(
+                padding=14,
+                radius=16,
+                content=ft.Column(spacing=8, controls=[section_title("HISTORY", "Hoạt động gần đây"), *(activity_controls or [empty_state("Chưa có hoạt động nào")])]),
             ),
         ],
     )

@@ -1,160 +1,105 @@
 import flet as ft
 
-from bll.services import chat_service
-from bll.services.auth_service import get_session_value
-from dal.dataset_repo import get_images_pending
-from ui.components.user.expert.dashboard_overview_chart import build_case_overview_chart
-from ui.theme import DANGER, PRIMARY, SECONDARY, WARNING, glass_container, page_header, severity_badge, status_badge
-
-_STATUS_META = {
-    "new": ("Moi", "warning"),
-    "claimed": ("Mo", "secondary"),
-    "under_review": ("Xu ly", "secondary"),
-    "waiting_farmer": ("Cho", "neutral"),
-    "escalated": ("Khan", "danger"),
-    "closed": ("Xong", "success"),
-}
+from bll.services.system_overview_service import get_system_overview
+from ui.theme import glass_container, metric_card, status_badge
 
 
-def _metric_tile(title: str, value: str, icon, accent: str, action_hint: str, on_click=None) -> ft.Control:
-    return ft.Container(
-        ink=bool(on_click),
-        on_click=(lambda e: on_click()) if on_click else None,
-        padding=14,
-        border_radius=18,
-        bgcolor=ft.Colors.with_opacity(0.22, accent),
-        border=ft.border.all(1, ft.Colors.with_opacity(0.32, accent)),
-        content=ft.Column(
-            tight=True,
-            spacing=8,
-            controls=[
-                ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[
-                        ft.Text(title, size=11, color=ft.Colors.WHITE70),
-                        ft.Icon(icon, size=18, color=accent),
-                    ],
-                ),
-                ft.Text(value, size=26, weight=ft.FontWeight.W_700, color=ft.Colors.WHITE),
-                ft.Text(action_hint, size=10, color=ft.Colors.WHITE54, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
-            ],
-        ),
-    )
+def _metric_grid(items: list[ft.Control]) -> ft.Column:
+    rows: list[ft.Control] = []
+    for i in range(0, len(items), 2):
+        pair = items[i:i + 2]
+        rows.append(
+            ft.Row(
+                spacing=10,
+                controls=[
+                    ft.Container(expand=1, content=pair[0]),
+                    ft.Container(expand=1, content=pair[1]) if len(pair) > 1 else ft.Container(expand=1),
+                ],
+            )
+        )
+    return ft.Column(spacing=10, controls=rows)
 
 
-def _case_card(case: dict, on_open) -> ft.Control:
-    status_label, status_kind = _STATUS_META.get(case.get("status"), ("Mo", "secondary"))
-    return ft.Container(
-        margin=ft.margin.only(bottom=8),
-        padding=14,
-        border_radius=18,
-        bgcolor=ft.Colors.with_opacity(0.16, ft.Colors.WHITE),
-        border=ft.border.all(1, ft.Colors.with_opacity(0.14, ft.Colors.WHITE)),
-        ink=True,
-        on_click=lambda e: on_open(case["id"]),
-        content=ft.Column(
-            spacing=6,
-            tight=True,
-            controls=[
-                ft.Row(
-                    spacing=6,
-                    controls=[
-                        ft.Text(f"Case-{case['id']:04d}", size=13, weight=ft.FontWeight.W_700, expand=True),
-                        severity_badge(case.get("severity", "medium")),
-                        status_badge(status_label, status_kind),
-                    ],
-                ),
-                ft.Text(
-                    f"{case.get('farm_name', '-')}  •  {case.get('cow_id', '-')}",
-                    size=11,
-                    color=ft.Colors.WHITE70,
-                    max_lines=1,
-                    overflow=ft.TextOverflow.ELLIPSIS,
-                ),
-                ft.Text(
-                    case.get("summary", "Chua co tom tat."),
-                    size=11,
-                    color=ft.Colors.WHITE54,
-                    max_lines=2,
-                    overflow=ft.TextOverflow.ELLIPSIS,
-                ),
-                ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[
-                        ft.Text(case.get("case_type", "Tư vấn"), size=10, color=ft.Colors.WHITE38),
-                        ft.Text(case.get("sla_due_at", "")[11:16] or "-", size=10, color=ft.Colors.AMBER_200),
-                    ],
-                ),
-            ],
-        ),
-    )
+def build_expert_dashboard(page: ft.Page | None = None):
+    expert_id = int((page.client_storage.get("user_id") or 0) if page else 0)
+    overview = get_system_overview(user_id=expert_id, role="expert")
 
+    metric_wrap = _metric_grid([
+        metric_card("Hội thoại", str(overview.get("own_conversations_total", 0)), ft.Icons.MARK_EMAIL_UNREAD),
+        metric_card("Chưa đọc", str(overview.get("own_conversations_unread", 0)), ft.Icons.NOTIFICATIONS),
+        metric_card("Cảnh báo hệ thống", str(overview.get("alerts_open", 0)), ft.Icons.WARNING_AMBER),
+        metric_card("Model online", f"{overview.get('models_online', 0)}/{overview.get('models_total', 0)}", ft.Icons.SMART_TOY),
+    ])
 
-def build_expert_dashboard(page: ft.Page = None, on_navigate=None):
-    expert_id = int(get_session_value(page, "user_id", 0) or 0)
-    chat_service.ensure_demo_data(expert_id)
-    cases = chat_service.list_conversations_for_expert(expert_id)
-    urgent_cases = [c for c in cases if c.get("severity") in ("critical", "high") or c.get("status") == "escalated"]
-    waiting_cases = [c for c in cases if c.get("status") == "waiting_farmer"]
-    review_count = len(get_images_pending())
-    snapshot_cases = (urgent_cases or waiting_cases or cases)[:3]
-
-    def _navigate(target: str, payload: dict | None = None):
-        if on_navigate:
-            on_navigate(target, payload)
-
-    def _open_case(case_id: int):
-        if page and isinstance(page.data, dict):
-            page.data["expert_selected_case_id"] = case_id
-        _navigate("consulting")
-
-    metric_controls = [
-        ("Ca mới", str(sum(1 for case in cases if case.get("status") == "new")), ft.Icons.FOLDER_OPEN, PRIMARY, "Mở Tư vấn", lambda: _navigate("consulting", {"expert_consulting_filter": "new"}), {"xs": 6, "sm": 4}),
-        ("Ca khẩn", str(len(urgent_cases)), ft.Icons.PRIORITY_HIGH, DANGER, "Mở Tư vấn", lambda: _navigate("consulting", {"expert_consulting_filter": "urgent"}), {"xs": 6, "sm": 4}),
-        ("Chờ data", str(review_count), ft.Icons.FACT_CHECK, WARNING, "Mở Dữ liệu", lambda: _navigate("raw_data", {"expert_raw_data_filter": "PENDING_REVIEW"}), {"xs": 6, "sm": 4}),
-        ("Chờ farmer", str(len(waiting_cases)), ft.Icons.HOURGLASS_TOP, SECONDARY, "Mở Tư vấn", lambda: _navigate("consulting", {"expert_consulting_filter": "waiting"}), {"xs": 6, "sm": 4}),
+    system_rows = [
+        ft.Text(f"Máy chủ: {overview.get('server_url', '--')}", size=12, color=ft.Colors.WHITE70),
+        ft.Text(f"Chế độ app: {overview.get('app_mode', '--')} | Port: {overview.get('app_port', '--')}", size=12, color=ft.Colors.WHITE70),
+        ft.Text(f"Camera toàn hệ thống: {overview.get('cameras_online', 0)}/{overview.get('cameras_total', 0)} online", size=12, color=ft.Colors.WHITE70),
+        ft.Text(f"Nhật ký hôm nay: {overview.get('activity_today', 0)} | Người dùng: {overview.get('users_total', 0)}", size=12, color=ft.Colors.WHITE70),
     ]
 
-    return ft.Container(
-        expand=True,
-        content=ft.Column(
-            scroll=ft.ScrollMode.AUTO,
-            spacing=14,
-            controls=[
-                page_header("Tổng quan chuyên gia", icon_name="SPACE_DASHBOARD"),
-                ft.ResponsiveRow(
-                    columns=12,
+    convos = []
+    from bll.services import chat_service
+
+    for convo in chat_service.list_conversations_for_expert(expert_id)[:6]:
+        last = convo.get("messages", [])[-1] if convo.get("messages") else {}
+        preview = last.get("text") or ("[Ảnh]" if (last.get("img_src") or last.get("img_b64")) else "Chưa có tin nhắn")
+        convos.append(
+            ft.Container(
+                padding=ft.padding.symmetric(horizontal=12, vertical=10),
+                border_radius=14,
+                bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+                border=ft.border.all(1, ft.Colors.with_opacity(0.10, ft.Colors.WHITE)),
+                content=ft.Row(
                     spacing=10,
-                    run_spacing=10,
+                    vertical_alignment=ft.CrossAxisAlignment.START,
                     controls=[
                         ft.Column(
-                            col=col,
-                            controls=[_metric_tile(title, value, icon, accent, action_hint, on_click)],
-                        )
-                        for title, value, icon, accent, action_hint, on_click, col in metric_controls
+                            expand=True,
+                            spacing=3,
+                            tight=True,
+                            controls=[
+                                ft.Text(convo.get("farmer_name", "Nông dân"), size=12, weight=ft.FontWeight.W_600),
+                                ft.Text(preview, size=11, color=ft.Colors.WHITE70, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                            ],
+                        ),
+                        status_badge(str(convo.get("unread_expert", 0) or 0), "warning" if convo.get("unread_expert", 0) else "primary"),
                     ],
                 ),
-                build_case_overview_chart(page, expert_id),
-                glass_container(
-                    padding=14,
-                    radius=18,
-                    content=ft.Column(
-                        spacing=10,
-                        tight=True,
-                        controls=[
-                            ft.Row(
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                controls=[
-                                    ft.Text("Cần xử lý ngay", size=14, weight=ft.FontWeight.W_700),
-                                    ft.Text("Top 3", size=10, color=ft.Colors.WHITE54),
-                                ],
-                            ),
-                            *[_case_card(case, _open_case) for case in snapshot_cases],
-                        ]
-                        if snapshot_cases
-                        else [ft.Text("Chưa có case ưu tiên cao.", size=12, color=ft.Colors.WHITE54)],
-                    ),
+            )
+        )
+
+    if not convos:
+        convos.append(ft.Text("Chưa có hội thoại thực tế từ nông dân.", size=12, color=ft.Colors.WHITE70))
+
+    return ft.Column(
+        expand=True,
+        spacing=14,
+        scroll=ft.ScrollMode.AUTO,
+        controls=[
+            ft.Text("Bảng điều khiển chuyên gia", size=22, weight=ft.FontWeight.W_700),
+            metric_wrap,
+            glass_container(
+                padding=14,
+                radius=18,
+                content=ft.Column(
+                    spacing=10,
+                    controls=[
+                        ft.Text("Thông số hệ thống", size=15, weight=ft.FontWeight.W_600),
+                        *system_rows,
+                    ],
                 ),
-            ],
-        ),
+            ),
+            glass_container(
+                padding=14,
+                radius=18,
+                content=ft.Column(
+                    spacing=10,
+                    controls=[
+                        ft.Text("Hội thoại cần xử lý", size=15, weight=ft.FontWeight.W_600),
+                        *convos,
+                    ],
+                ),
+            ),
+        ],
     )

@@ -1,95 +1,340 @@
+"""
+Quản lý model AI trong hệ thống.
+- Nhận diện bò
+- Hành vi bò
+- Sàng lọc bò khỏe/bệnh
+- Phân loại bệnh
+- Phân vùng bệnh
+"""
 from __future__ import annotations
 
 import flet as ft
 
-from bll.admin.model_management import list_models as get_all_models
 from ui.theme import (
     PRIMARY,
-    SECONDARY,
     WARNING,
-    empty_state,
+    DANGER,
+    SECONDARY,
     glass_container,
-    info_strip,
-    inline_field,
-    metric_card,
-    page_header,
     status_badge,
+    button_style,
+    empty_state,
+    fmt_dt,
+)
+from bll.admin.model_management import (
+    list_models as get_all_models,
+    update_model_status,
+    update_model_config,
+    update_model,
 )
 
-from .model_management_cards import TYPE_META, build_model_card
+_LOAI_LABEL = {
+    "cattle_detect": ("Nhận diện bò", ft.Icons.PETS, PRIMARY),
+    "behavior": ("Hành vi bò", ft.Icons.DIRECTIONS_RUN, SECONDARY),
+    "health_cls": ("Sàng lọc khỏe/bệnh", ft.Icons.FACT_CHECK, WARNING),
+    "disease_cls": ("Phân loại bệnh", ft.Icons.PSYCHOLOGY_ALT, WARNING),
+    "disease": ("Phân vùng bệnh", ft.Icons.MEDICAL_SERVICES, WARNING),
+    "custom": ("Tùy chỉnh", ft.Icons.SMART_TOY, ft.Colors.WHITE54),
+}
+
+_STATUS_MAP = {
+    "online": ("Đang chạy", "primary", ft.Icons.PLAY_CIRCLE),
+    "testing": ("Thử nghiệm", "warning", ft.Icons.SCIENCE),
+    "offline": ("Ngoại tuyến", "danger", ft.Icons.PAUSE_CIRCLE),
+}
 
 
-def _filter_models(models: list[dict], keyword: str, type_filter: str) -> list[dict]:
-    needle = (keyword or "").strip().lower()
-    filtered = []
-    for model in models:
-        if type_filter != "all" and model.get("loai_mo_hinh") != type_filter:
-            continue
-        haystack = " ".join(
-            [
-                str(model.get("ten_mo_hinh", "")),
-                str(model.get("loai_mo_hinh", "")),
-                str(model.get("phien_ban", "")),
-                str(model.get("mo_ta", "")),
-            ]
-        ).lower()
-        if needle and needle not in haystack:
-            continue
-        filtered.append(model)
-    return filtered
+def _yolo_slider(label: str, value: float, accent, on_change) -> ft.Column:
+    val_text = ft.Text(
+        f"{value:.2f}",
+        size=13,
+        weight=ft.FontWeight.W_700,
+        color=accent,
+        width=40,
+    )
+
+    def _changed(e):
+        val_text.value = f"{float(e.control.value):.2f}"
+        val_text.update()
+        on_change(float(e.control.value))
+
+    slider = ft.Slider(
+        value=value,
+        min=0.05,
+        max=0.95,
+        divisions=18,
+        label="{value:.2f}",
+        active_color=accent,
+        inactive_color=ft.Colors.with_opacity(0.18, ft.Colors.WHITE),
+        thumb_color=accent,
+        expand=True,
+        on_change=_changed,
+    )
+    return ft.Column(
+        spacing=2,
+        controls=[
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Text(label, size=11, color=ft.Colors.WHITE70),
+                    val_text,
+                ],
+            ),
+            ft.Row(spacing=0, controls=[slider]),
+        ],
+    )
+
+
+def _model_card(m: dict, on_refresh) -> ft.Control:
+    mid = m.get("id_model")
+    name = m.get("ten_mo_hinh", "Mô hình AI")
+    version = m.get("phien_ban", "v0.0.0")
+    desc = m.get("mo_ta", "")
+    st_key = m.get("trang_thai", "offline")
+    loai = m.get("loai_mo_hinh", "custom")
+    conf_val = float(m.get("conf", 0.50))
+    iou_val = float(m.get("iou", 0.45))
+    pt_path = m.get("duong_dan_file", "")
+
+    loai_label, loai_icon, loai_color = _LOAI_LABEL.get(loai, _LOAI_LABEL["custom"])
+    st_label, st_kind, _ = _STATUS_MAP.get(st_key, ("Không rõ", "warning", None))
+
+    cfg_panel_ref = ft.Ref[ft.Container]()
+    save_msg = ft.Text("", size=11, color=ft.Colors.GREEN_300)
+    state = {"conf": conf_val, "iou": iou_val}
+
+    pt_field = ft.TextField(
+        value=pt_path,
+        label="Đường dẫn file model",
+        hint_text="models/model.pt",
+        prefix_icon=ft.Icons.FOLDER_OPEN,
+        border_radius=12,
+        expand=True,
+        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+        border_color=ft.Colors.with_opacity(0.28, ft.Colors.WHITE),
+        focused_border_color=loai_color,
+        label_style=ft.TextStyle(color=ft.Colors.WHITE70, size=12),
+        text_style=ft.TextStyle(color=ft.Colors.WHITE, size=12),
+        cursor_color=ft.Colors.WHITE,
+        content_padding=ft.padding.symmetric(horizontal=12, vertical=10),
+    )
+
+    ver_field = ft.TextField(
+        value=version,
+        label="Phiên bản",
+        border_radius=12,
+        width=110,
+        bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.WHITE),
+        border_color=ft.Colors.with_opacity(0.28, ft.Colors.WHITE),
+        focused_border_color=loai_color,
+        label_style=ft.TextStyle(color=ft.Colors.WHITE70, size=12),
+        text_style=ft.TextStyle(color=ft.Colors.WHITE, size=12),
+        cursor_color=ft.Colors.WHITE,
+        content_padding=ft.padding.symmetric(horizontal=12, vertical=10),
+    )
+
+    def _toggle(_e):
+        new_st = "online" if st_key in ("offline", "testing") else "offline"
+        update_model_status(mid, new_st)
+        on_refresh()
+
+    def _save_cfg(_e):
+        path = (pt_field.value or "").strip()
+        if path and not (path.endswith(".pt") or path.endswith(".onnx")):
+            save_msg.value = "File phải có đuôi .pt hoặc .onnx"
+            save_msg.color = ft.Colors.AMBER_300
+            save_msg.update()
+            return
+        update_model_config(mid, state["conf"], state["iou"], path)
+        new_ver = (ver_field.value or "v1.0.0").strip()
+        if new_ver != version:
+            update_model(mid, {"phien_ban": new_ver})
+        save_msg.value = "Đã lưu cấu hình"
+        save_msg.color = ft.Colors.GREEN_300
+        save_msg.update()
+
+    def _toggle_cfg(_e):
+        panel = cfg_panel_ref.current
+        panel.visible = not panel.visible
+        panel.update()
+
+    conf_slider = _yolo_slider("Confidence (conf)", conf_val, loai_color, lambda v: state.update({"conf": v}))
+    iou_slider = _yolo_slider("IoU Threshold (iou)", iou_val, SECONDARY, lambda v: state.update({"iou": v}))
+
+    cfg_panel = ft.Container(
+        ref=cfg_panel_ref,
+        visible=False,
+        padding=ft.padding.only(top=10),
+        content=ft.Column(
+            spacing=10,
+            controls=[
+                ft.Divider(color=ft.Colors.with_opacity(0.15, ft.Colors.WHITE), height=1),
+                ft.Text(f"Cấu hình model - {name}", size=12, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE70),
+                conf_slider,
+                iou_slider,
+                ft.Row(spacing=8, controls=[pt_field, ver_field]),
+                ft.Text(
+                    "conf: ngưỡng tin cậy (0.05-0.95)  |  iou: độ chồng lấp NMS (0.05-0.95)",
+                    size=10,
+                    color=ft.Colors.WHITE38,
+                ),
+                ft.Row(
+                    spacing=8,
+                    controls=[
+                        ft.ElevatedButton(
+                            "Lưu cấu hình",
+                            icon=ft.Icons.SAVE,
+                            style=button_style("primary"),
+                            height=34,
+                            on_click=_save_cfg,
+                        ),
+                        save_msg,
+                    ],
+                ),
+            ],
+        ),
+    )
+
+    has_model_file = bool(pt_path and (pt_path.endswith(".pt") or pt_path.endswith(".onnx")))
+    file_indicator = ft.Row(
+        tight=True,
+        spacing=4,
+        controls=[
+            ft.Icon(
+                ft.Icons.CHECK_CIRCLE if has_model_file else ft.Icons.RADIO_BUTTON_UNCHECKED,
+                size=12,
+                color=ft.Colors.GREEN_300 if has_model_file else ft.Colors.WHITE38,
+            ),
+            ft.Text(
+                pt_path.split("/")[-1] if has_model_file else "Chưa có file model",
+                size=10,
+                color=ft.Colors.GREEN_300 if has_model_file else ft.Colors.WHITE38,
+                max_lines=1,
+                overflow=ft.TextOverflow.ELLIPSIS,
+            ),
+        ],
+    )
+
+    return glass_container(
+        padding=14,
+        radius=16,
+        content=ft.Column(
+            spacing=6,
+            controls=[
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.START,
+                    controls=[
+                        ft.Row(
+                            spacing=10,
+                            tight=True,
+                            controls=[
+                                ft.Container(
+                                    width=40,
+                                    height=40,
+                                    border_radius=14,
+                                    bgcolor=ft.Colors.with_opacity(0.18, loai_color),
+                                    alignment=ft.alignment.center,
+                                    content=ft.Icon(loai_icon, size=20, color=loai_color),
+                                ),
+                                ft.Column(
+                                    tight=True,
+                                    spacing=2,
+                                    controls=[
+                                        ft.Text(name, size=15, weight=ft.FontWeight.W_700, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                                        ft.Text(loai_label, size=10, color=ft.Colors.WHITE54),
+                                    ],
+                                ),
+                            ],
+                        ),
+                        status_badge(st_label, st_kind),
+                    ],
+                ),
+                ft.Text(desc, size=11, color=ft.Colors.WHITE60, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS) if desc else ft.Container(height=0),
+                file_indicator,
+                ft.Row(
+                    spacing=8,
+                    tight=True,
+                    controls=[
+                        ft.Container(
+                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                            border_radius=8,
+                            bgcolor=ft.Colors.with_opacity(0.14, loai_color),
+                            content=ft.Row(
+                                tight=True,
+                                spacing=4,
+                                controls=[
+                                    ft.Text("conf", size=10, color=ft.Colors.WHITE54),
+                                    ft.Text(f"{conf_val:.2f}", size=12, weight=ft.FontWeight.W_700, color=loai_color),
+                                ],
+                            ),
+                        ),
+                        ft.Container(
+                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                            border_radius=8,
+                            bgcolor=ft.Colors.with_opacity(0.14, SECONDARY),
+                            content=ft.Row(
+                                tight=True,
+                                spacing=4,
+                                controls=[
+                                    ft.Text("iou", size=10, color=ft.Colors.WHITE54),
+                                    ft.Text(f"{iou_val:.2f}", size=12, weight=ft.FontWeight.W_700, color=SECONDARY),
+                                ],
+                            ),
+                        ),
+                        ft.Text(f"Cập nhật: {fmt_dt(m.get('updated_at', ''))}", size=10, color=ft.Colors.WHITE38),
+                    ],
+                ),
+                ft.Row(
+                    spacing=6,
+                    controls=[
+                        ft.ElevatedButton(
+                            "Bật" if st_key in ("offline", "testing") else "Tắt",
+                            icon=ft.Icons.PLAY_ARROW if st_key in ("offline", "testing") else ft.Icons.STOP,
+                            style=button_style("primary" if st_key in ("offline", "testing") else "danger"),
+                            height=32,
+                            on_click=_toggle,
+                        ),
+                        ft.OutlinedButton(
+                            "Cấu hình model",
+                            icon=ft.Icons.TUNE,
+                            height=32,
+                            style=ft.ButtonStyle(
+                                color=ft.Colors.WHITE70,
+                                side=ft.BorderSide(1, ft.Colors.WHITE24),
+                                shape=ft.RoundedRectangleBorder(radius=10),
+                            ),
+                            on_click=_toggle_cfg,
+                        ),
+                    ],
+                ),
+                cfg_panel,
+            ],
+        ),
+    )
 
 
 def build_model_management():
-    search_field = inline_field("Tim model / version", ft.Icons.SEARCH)
-    active_filter = {"value": "all"}
-    cards_ref = ft.Ref[ft.Column]()
-    chips_ref = ft.Ref[ft.Row]()
-    summary_ref = ft.Ref[ft.Row]()
-    summary_row = ft.Row(ref=summary_ref, spacing=8, wrap=True, run_spacing=8, controls=[])
-    chips_row = ft.Row(
-        ref=chips_ref,
-        spacing=6,
-        scroll=ft.ScrollMode.AUTO,
-        controls=[],
-    )
-    cards_column = ft.Column(ref=cards_ref, spacing=10, controls=[])
+    list_ref = ft.Ref[ft.Column]()
 
     def refresh():
-        all_models = get_all_models()
-        filtered = _filter_models(all_models, search_field.value or "", active_filter["value"])
-        online_count = sum(1 for model in all_models if model.get("trang_thai") == "online")
-        testing_count = sum(1 for model in all_models if model.get("trang_thai") == "testing")
-        missing_path = sum(1 for model in all_models if not str(model.get("duong_dan_file", "")).strip())
-
-        summary_ref.current.controls = [
-            ft.Container(expand=1, content=metric_card("Tong model", str(len(all_models)), ft.Icons.DATA_OBJECT, PRIMARY)),
-            ft.Container(expand=1, content=metric_card("Dang production", str(online_count), ft.Icons.VERIFIED, SECONDARY)),
-            ft.Container(expand=1, content=metric_card("Dang testing", str(testing_count), ft.Icons.SCIENCE, WARNING)),
-            ft.Container(expand=1, content=metric_card("Thieu path", str(missing_path), ft.Icons.FOLDER_OFF, ft.Colors.RED_300)),
-        ]
-        cards_ref.current.controls = (
-            [build_model_card(model, all_models, refresh) for model in filtered]
-            if filtered
-            else [empty_state("Khong co model khop bo loc hien tai")]
+        order_map = {
+            "cattle_detect": 0,
+            "behavior": 1,
+            "health_cls": 2,
+            "disease_cls": 3,
+            "disease": 4,
+        }
+        models = sorted(
+            get_all_models(),
+            key=lambda m: (order_map.get(m.get("loai_mo_hinh"), 99), m.get("id_model", 0)),
         )
-        if summary_ref.current.page:
-            summary_ref.current.update()
-        if cards_ref.current.page:
-            cards_ref.current.update()
+        cards = [_model_card(m, refresh) for m in models] if models else [empty_state("Chưa có mô hình nào")]
+        list_ref.current.controls = cards
+        if list_ref.current.page:
+            list_ref.current.update()
 
-    def _set_filter(filter_key: str):
-        active_filter["value"] = filter_key
-        chips_ref.current.controls = _build_type_chips(active_filter["value"], _set_filter)
-        if chips_ref.current.page:
-            chips_ref.current.update()
-        refresh()
-
-    refresh_button = ft.IconButton(
-        ft.Icons.REFRESH,
-        tooltip="Lam moi",
-        on_click=lambda e: refresh(),
-    )
-    chips_row.controls = _build_type_chips(active_filter["value"], _set_filter)
+    model_list = ft.Column(ref=list_ref, spacing=10, controls=[])
     refresh()
 
     return ft.Column(
@@ -97,75 +342,44 @@ def build_model_management():
         spacing=12,
         scroll=ft.ScrollMode.AUTO,
         controls=[
-            page_header(
-                "Model registry",
-                "Quan ly candidate, testing va production cho tat ca model AI.",
-                icon_name="DATA_OBJECT",
-                actions=[refresh_button],
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Column(
+                        tight=True,
+                        spacing=1,
+                        controls=[
+                            ft.Text("Mô hình AI", size=20, weight=ft.FontWeight.W_700),
+                            ft.Text(
+                                "Nhận diện bò  ·  Hành vi  ·  Sàng lọc khỏe/bệnh  ·  Phân loại bệnh  ·  Phân vùng bệnh",
+                                size=11,
+                                color=ft.Colors.WHITE54,
+                            ),
+                        ],
+                    ),
+                    ft.IconButton(ft.Icons.REFRESH, icon_color=ft.Colors.WHITE60, tooltip="Làm mới", on_click=lambda e: refresh()),
+                ],
             ),
-            info_strip(
-                "Apply to production se dua model cung loai dang online ve offline. "
-                "Rollback hien tai duoc thuc hien bang cach apply lai model truoc do, khong co lich su an.",
-                tone="warning",
-            ),
-            summary_row,
-            glass_container(
-                padding=12,
-                radius=16,
-                content=ft.Column(
-                    spacing=10,
+            ft.Container(
+                padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                border_radius=12,
+                bgcolor=ft.Colors.with_opacity(0.10, ft.Colors.AMBER),
+                border=ft.border.all(1, ft.Colors.with_opacity(0.25, ft.Colors.AMBER)),
+                content=ft.Row(
+                    tight=True,
+                    spacing=8,
                     controls=[
-                        ft.Row(
-                            spacing=8,
-                            controls=[
-                                search_field,
-                                ft.IconButton(
-                                    ft.Icons.SEARCH,
-                                    icon_color=ft.Colors.WHITE70,
-                                    on_click=lambda e: refresh(),
-                                ),
-                            ],
-                        ),
-                        chips_row,
-                        ft.Row(
-                            spacing=8,
-                            wrap=True,
-                            controls=[
-                                status_badge("Online = production", "primary"),
-                                status_badge("Testing = candidate", "warning"),
-                                status_badge("Offline = disabled", "neutral"),
-                            ],
+                        ft.Icon(ft.Icons.INFO_OUTLINE, size=14, color=ft.Colors.AMBER_200),
+                        ft.Text(
+                            "Luồng Tư vấn AI có thể chạy 3 tầng: health_cls để sàng lọc khỏe/bệnh, disease_cls để phân loại bệnh, rồi disease segmentation để khoanh vùng tổn thương. Nhập đúng file model và thông số cho từng tầng.",
+                            size=11,
+                            color=ft.Colors.AMBER_100,
+                            expand=True,
                         ),
                     ],
                 ),
             ),
-            cards_column,
+            model_list,
         ],
     )
-
-
-def _build_type_chips(active: str, on_click) -> list[ft.Control]:
-    def _chip(key: str, label: str) -> ft.Control:
-        selected = active == key
-        return ft.Container(
-            ink=True,
-            on_click=lambda e, value=key: on_click(value),
-            padding=ft.padding.symmetric(horizontal=12, vertical=8),
-            border_radius=999,
-            bgcolor=ft.Colors.with_opacity(0.26, PRIMARY if selected else ft.Colors.WHITE),
-            border=ft.border.all(
-                1,
-                ft.Colors.with_opacity(0.42, PRIMARY if selected else ft.Colors.WHITE),
-            ),
-            content=ft.Text(
-                label,
-                size=11,
-                weight=ft.FontWeight.W_600 if selected else ft.FontWeight.W_400,
-                color=ft.Colors.WHITE if selected else ft.Colors.WHITE70,
-            ),
-        )
-
-    controls = [_chip("all", "Tat ca")]
-    for model_type, meta in TYPE_META.items():
-        controls.append(_chip(model_type, meta["label"]))
-    return controls

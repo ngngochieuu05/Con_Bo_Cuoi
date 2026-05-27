@@ -5,25 +5,22 @@ from ui.components.admin.model_management import build_model_management
 from ui.components.admin.oa_management import build_oa_management
 from ui.components.admin.profile_admin import build_profile_admin
 from ui.components.admin.settings import build_admin_settings
-from ui.components.admin.train_management import build_train_management
 from ui.components.admin.user_management import build_user_management
 from ui.theme import build_role_shell
 
 
 def AdminMainScreen(page: ft.Page, on_logout=None):
     views = {
-        "dashboard": build_admin_dashboard,
-        "users": build_user_management,
-        "models": build_model_management,
-        "train": build_train_management,
-        "analytics": build_oa_management,
-        "settings": build_admin_settings,
+        "dashboard": lambda: build_admin_dashboard(),
+        "users": lambda: build_user_management(),
+        "models": lambda: build_model_management(),
+        "analytics": lambda: build_oa_management(),
+        "settings": lambda: build_admin_settings(on_logout=on_logout),
     }
     navigation_items = [
         ("dashboard", "Tổng quan", "DASHBOARD"),
         ("users", "Tài khoản", "GROUP"),
         ("models", "Mô hình", "SMART_TOY"),
-        ("train", "Train AI", "MODEL_TRAINING"),
         ("analytics", "Thống kê", "ANALYTICS"),
         ("settings", "Cài đặt", "SETTINGS"),
     ]
@@ -36,12 +33,10 @@ def AdminMainScreen(page: ft.Page, on_logout=None):
         render()
 
     def render():
-        view_builder = views.get(selected["key"], build_admin_dashboard)
         if selected["key"] == "profile":
             content_holder.content = build_profile_admin(page, on_back=lambda: select_view("dashboard"))
-        elif selected["key"] == "settings":
-            content_holder.content = build_admin_settings(on_logout=on_logout)
         else:
+            view_builder = views.get(selected["key"], views["dashboard"])
             content_holder.content = view_builder()
         root.content = build_role_shell(
             role_title="QUẢN TRỊ",

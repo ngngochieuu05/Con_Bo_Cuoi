@@ -1,9 +1,40 @@
 {
   "server_url": "http://127.0.0.1:8000",
   "camera_index": 0,
-  "auto_connect": false,
+  "camera_capture_index": 0,
+  "monitor_camera_index": 0,
+  "auto_connect": true,
   "notify_alert": true,
-  "app_mode": "desktop",
-  "app_port": 8550,
-  "yolo_model_mode": "gpu"
+  "app_mode": "web",
+  "app_port": 8080,
+  "yolo_model_mode": "gpu",
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "dbname": "ConBoCuoi_DB",
+    "user": "postgres",
+    "password": "Hieudz125@@"
+  },
+  "telegram": {
+    "bot_token": "8247948650:AAH1V1SK7DssJCoV1XkKAdD7K0TxHPI4quw",
+    "chat_id": "8511760023",
+    "bot_name": "Cattle_Farm_Bot"
+  },
+  "thresholds": {
+    "lying_duration_minutes": 30,
+    "fight_iou_threshold": 0.1,
+    "fight_velocity_threshold": 40.0,
+    "fight_contact_seconds": 5.0,
+    "alert_cooldown_seconds": 60,
+    "feeding_hours": [
+      [
+        6,
+        8
+      ],
+      [
+        16,
+        18
+      ]
+    ]
+  }
 }
