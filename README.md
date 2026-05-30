@@ -1,172 +1,350 @@
-# Con Bo Cuoi
+<div align="center">
 
-AI cattle monitoring app plus model-training toolkit.
+<a href="#english-version">🇬🇧 English</a> · <a href="#vietnamese-version">🇻🇳 Tiếng Việt</a>
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![Flet](https://img.shields.io/badge/Flet-0.28.x-00A8E8?style=flat-square)](https://flet.dev)
-[![YOLO](https://img.shields.io/badge/YOLO-Ultralytics-FF6B35?style=flat-square)](https://ultralytics.com)
+<br/>
+
+<img src="img/header_composite.jpg" alt="Con Bò Cười — HD LGBT" width="760" />
+
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Flet](https://img.shields.io/badge/Flet-0.28.3-00A8E8?style=flat-square)](https://flet.dev)
+[![YOLOv8](https://img.shields.io/badge/YOLO-v8-FF6B35?style=flat-square)](https://ultralytics.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![Issues](https://img.shields.io/github/issues/ngngochieuu05/Con_Bo_Cuoi?style=flat-square)](https://github.com/ngngochieuu05/Con_Bo_Cuoi/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/ngngochieuu05/Con_Bo_Cuoi?style=flat-square)](https://github.com/ngngochieuu05/Con_Bo_Cuoi/commits)
 
-## Overview
+</div>
 
-`main` now keeps the two app folders copied from `devH` as-is:
+---
 
-- `webapp_system/`: Flet desktop/web app for cattle monitoring, role dashboards, AI consulting, alerts, camera streaming, Telegram notifications, and PostgreSQL-backed app data.
-- `tool_train/`: desktop toolkit for dataset preparation, model training, model testing, batch evaluation, augmentation, and training artifacts.
+<a id="english-version"></a>
 
-## Features
+## 🇬🇧 English
 
-| Area | Capability |
-| --- | --- |
-| Monitoring | Live camera feed, YOLO detection, behavior/disease alert workflows |
-| Roles | Admin, expert, farmer dashboards and profile/settings pages |
-| Consulting | Farmer AI chat, snapshots, expert review, local chat history |
-| Alerts | Telegram bot/alert services and PostgreSQL-backed alert records |
-| Training | Dataset split/copy/augment tools and YOLO/classification trainers |
-| Testing | Model registry, inference, segment, artifact, history, and batch evaluation services |
+> A cross-platform desktop/web application for real-time cattle herd monitoring — detecting abnormal behavior, disease alerts, and connecting farmers with veterinary experts through AI.
 
-## Structure
+### ✨ Features
 
-```text
-Con_Bo_Cuoi/
-|-- webapp_system/
-|   |-- README.md
-|   |-- data/
-|   |-- skill/
-|   `-- src/
-|       |-- main.py
-|       |-- bll/
-|       |-- dal/
-|       |   |-- base_repo.py
-|       |   `-- db/app_config.json
-|       `-- ui/
-|           |-- theme.py
-|           `-- components/
-|-- tool_train/
-|   `-- src/
-|       |-- main_test.py
-|       |-- bll/
-|       |-- dal/jsonb/
-|       `-- ui/
-|-- docs/
-|-- guide/
-|-- LICENSE
-|-- SECURITY.md
-`-- CLAUDE.md
+| Feature | Description |
+|---------|-------------|
+| 🎯 **YOLO Cattle Detection** | Detect and localize each cow in real-time via camera |
+| 🧠 **Behavior Classification** | Auto-classify: lying, fighting, heat stress, anomalies |
+| 🚨 **Disease Alerts** | AI flags disease signs and sends instant alerts |
+| 👥 **3 User Roles** | Admin, Expert, Farmer — each with a dedicated dashboard |
+| 💬 **AI Consulting** | Farmers chat with AI + send camera snapshots for review |
+| 📊 **Analytics Dashboard** | KPI cards, alert charts, session history |
+| 🖥️ **Desktop + Web** | Offline desktop app or LAN web deployment |
+| 🔌 **Camera Integration** | USB camera, IP camera, snapshot & live stream support |
+
+### 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      UI Layer                           │
+│  admin/   expert/   farmer/   auth/   theme.py facade   │
+│  Glassmorphism UI · Airbnb buttons · Role-based shell   │
+├─────────────────────────────────────────────────────────┤
+│                   BLL Layer (Services)                  │
+│  auth_service.py · monitor_service.py · tu_van_ai.py   │
+│  Login/logout · YOLO config · AI chat · Camera stream  │
+├─────────────────────────────────────────────────────────┤
+│                   DAL Layer (Repos)                     │
+│  base_repo.py · *_repo.py · dal/db/*.json              │
+│  JSON store → PostgreSQL-ready (swap base_repo only)   │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Architecture
+### 🤖 AI Models
 
-`webapp_system/src` uses a strict layered flow:
+| Model | Level | Function |
+|-------|-------|----------|
+| `cattle_detect` | User-level | Detect & localize cattle (bounding boxes) |
+| `behavior` | User-level | Classify behavior (lying, standing, fighting...) |
+| `disease` | System-level | Disease sign detection (admin-managed) |
 
-```text
-UI components -> BLL services/admin/user modules -> DAL repositories -> PostgreSQL
-```
+Config params: `conf` (0.05–0.95) · `iou` (0.05–0.95) · `.pt` model file path
 
-- UI lives under `webapp_system/src/ui/components/` and shared UI helpers live in `webapp_system/src/ui/theme.py`.
-- BLL lives under `webapp_system/src/bll/` and owns auth, monitoring, chat, alert, Telegram, admin, expert, and farmer workflows.
-- DAL lives under `webapp_system/src/dal/`. `base_repo.py` stores data in PostgreSQL table `json_store`; entity wrappers stay in `*_repo.py`.
+### 📦 Installation
 
-`tool_train/src` mirrors the same separation at a toolkit level: `ui/`, `bll/`, and `dal/jsonb/`.
-
-## Requirements
-
-- Python 3.10+ recommended.
-- PostgreSQL local database named `ConBoCuoi_DB`, unless you change config.
-- Windows 10/11 for the main desktop flow. Web mode can run where Flet/OpenCV work.
-- Camera optional for setup, required for live monitoring.
-- CUDA GPU recommended for training/inference; CPU mode is possible.
-
-No pinned `requirements.txt` is tracked on `main` right now. Install dependencies manually or create a local requirements file for your machine.
-
-## Setup
+**Requirements:** Python 3.14+ · Windows 10/11 (desktop) or Linux/macOS (web) · Webcam / IP Camera (optional) · GPU CUDA (recommended)
 
 ```bash
+# 1. Clone
 git clone https://github.com/ngngochieuu05/Con_Bo_Cuoi.git
 cd Con_Bo_Cuoi
 
+# 2. Virtual environment
 python -m venv .venv
-.venv\Scripts\activate
-python -m pip install --upgrade pip
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux/macOS
 
-pip install flet opencv-python ultralytics pillow numpy requests qrcode psycopg2-binary cryptography google-generativeai customtkinter albumentations
+# 3. Install dependencies
+pip install -r webapp_system/requirements.txt
 
-# CUDA 12.x
+# GPU (CUDA 12.x)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# CPU only
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install ultralytics
 
-# CPU only alternative
-# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-```
-
-PostgreSQL setup:
-
-1. Create database `ConBoCuoi_DB`.
-2. Adjust local DB credentials in `webapp_system/src/dal/base_repo.py` and `webapp_system/src/dal/db/app_config.json` if needed.
-3. Run the app once so DAL seed functions initialize data through `json_store`.
-
-## Run
-
-Monitoring app:
-
-```bash
+# 4. Run
 python webapp_system/src/main.py
 ```
 
-Training/testing toolkit:
+**Web mode** — edit `webapp_system/src/dal/db/app_config.json`:
+
+```json
+{ "app_mode": "web", "app_port": 8080 }
+```
+
+### 📁 Project Structure
+
+```
+Con_Bo_Cuoi/
+├── webapp_system/
+│   ├── requirements.txt
+│   └── src/
+│       ├── main.py                  # Entry point
+│       ├── bll/services/            # Business logic
+│       │   ├── auth_service.py      # Login, logout, session
+│       │   └── monitor_service.py   # YOLO config, camera, AI calls
+│       ├── dal/                     # Data access layer
+│       │   ├── base_repo.py         # Generic CRUD (JSON / DB-ready)
+│       │   └── db/                  # Runtime JSON files (gitignored)
+│       └── ui/
+│           ├── theme.py             # Compatibility facade for shared UI helpers
+│           ├── theme_*.py           # Tokens, primitives, shells, auth/table/nav helpers
+│           └── components/
+│               ├── auth/            # Login, register, forgot password
+│               ├── admin/           # Dashboard, user/model/camera mgmt
+│               └── user/
+│                   ├── expert/      # Consulting, data review
+│                   └── framer/      # Live monitoring, health consulting
+└── docs/                            # Technical documentation
+```
+
+### 🎨 Design System
+
+All UI uses **Glassmorphism** + **Airbnb button style**, exported from `ui/theme.py` and implemented in split `theme_*` modules:
+
+```python
+from ui.theme import glass_container, button_style, build_role_shell
+
+glass_container(content=my_widget, padding=24, radius=28)
+ft.ElevatedButton("Submit", style=button_style("primary"))
+build_role_shell(page, role="farmer", content=my_screen)
+```
+
+> Always use `ft.Colors.*` and `ft.Icons.*` (uppercase). Never inline glass styles.
+
+### 🛠️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Language | Python 3.14 |
+| UI Framework | [Flet](https://flet.dev) 0.28.3 |
+| Computer Vision | OpenCV 4.13+ |
+| AI/ML | YOLOv8 (Ultralytics) · PyTorch |
+| Image Processing | Pillow 12+ · NumPy 2.4+ |
+| Data Storage | JSON (dev) · PostgreSQL-ready |
+| Auth | PBKDF2-HMAC-SHA256 · session via page.data (+ legacy client_storage mirror) |
+
+### 🗺️ Roadmap
+
+- [x] **Phase 1** — MVP: Auth, Admin CRUD, basic UI
+- [x] **Phase 2** — Expert UI: Consulting dashboard, AI insights
+- [ ] **Phase 3** — YOLO integration: Live detection, behavior alerts
+- [ ] **Phase 4** — Alert system: Real-time notifications, case workflows
+- [ ] **Phase 5** — Production: PostgreSQL, deployment, performance
+- [ ] **Phase 6** — Community: Plugin ecosystem, open API
+
+### 🔒 Security
+
+We take security seriously. Please read our full [Security Policy](SECURITY.md) before reporting.
+
+**Quick summary:**
+
+- **Do NOT** open a public GitHub issue for vulnerabilities — email maintainers directly
+- Passwords hashed with PBKDF2-HMAC-SHA256 (legacy SHA-256 auto-upgrade) · sessions cleared on logout · no credentials in repo
+- Default seed accounts use weak passwords — **change before any production deployment**
+
+→ See [SECURITY.md](SECURITY.md) for supported versions, reporting instructions, and known limitations.
+
+### 🤝 Contributing
+
+Contributions of all kinds are welcome — bug fixes, features, docs, and tests.
+
+#### Getting Started
 
 ```bash
-python tool_train/src/main_test.py
+# 1. Fork the repository on GitHub
+# 2. Clone your fork
+git clone https://github.com/<your-username>/Con_Bo_Cuoi.git
+cd Con_Bo_Cuoi
+
+# 3. Create a feature branch
+git checkout -b feat/your-feature-name
+
+# 4. Set up the dev environment
+python -m venv .venv && .venv\Scripts\activate
+pip install -r webapp_system/requirements.txt
 ```
 
-Web mode is controlled by `webapp_system/src/dal/db/app_config.json`:
+#### Development Rules
 
-```text
-app_mode = web
-app_port = 8080
+| Rule | Detail |
+|------|--------|
+| **File size** | Max 200 LOC per file — split larger files |
+| **Flet API** | Use `ft.Colors.*` / `ft.Icons.*` (uppercase only) |
+| **UI components** | Always use helpers from `ui/theme.py` — no inline styles |
+| **File naming** | kebab-case for Python/JS/shell files |
+| **Commits** | Follow [Conventional Commits](https://conventionalcommits.org) |
+| **Language** | Code, comments, and commit messages in English |
+
+#### Commit Message Format
+
+```
+feat: add live camera snapshot for farmer dashboard
+fix: resolve page.data isinstance error on web mode
+docs: update system architecture diagram
+refactor: split consulting_review into smaller modules
 ```
 
-When web mode starts, the app checks the configured port, falls back to a nearby free port if needed, prints LAN URLs, and generates `qr_access.png` for phone access on the same network.
+#### Pull Request Checklist
 
-## Default Accounts
+- [ ] Code follows the style guidelines (max 200 LOC, `ui/theme.py` helpers)
+- [ ] No hardcoded credentials or secrets
+- [ ] Tested on desktop mode (Windows)
+- [ ] PR description clearly explains the change and motivation
+- [ ] Linked to a relevant issue (if applicable)
 
-| Role | Username | Password |
-| --- | --- | --- |
-| Admin | `admin` | `admin123` |
-| Expert | `expert01` | `expert123` |
-| Farmer | `farmer01` | `farmer123` |
+#### Reporting Bugs
 
-Change these before any shared or production deployment.
+Open an [issue](https://github.com/ngngochieuu05/Con_Bo_Cuoi/issues) and include:
 
-## Config Notes
+- Steps to reproduce
+- Expected vs actual behavior
+- Python version, OS, and Flet version
+- Screenshots or error logs (if applicable)
 
-- App mode, port, camera indexes, model mode, Telegram settings, and alert thresholds live in `webapp_system/src/dal/db/app_config.json`.
-- PostgreSQL defaults are currently in `webapp_system/src/dal/base_repo.py`.
-- Telegram services live in `webapp_system/src/bll/services/telegram_*.py`.
-- Toolkit local configs live in `tool_train/src/dal/jsonb/`.
+### 👥 Team
 
-## Security
+| Member | Role |
+|--------|------|
+| **Tran Tan Dat** | Developer — Expert UI, YOLO integration |
+| **Nguyen Ngoc Hieu** | Developer — Farmer UI, Auth |
 
-- Do not commit real production passwords, Telegram tokens, API keys, model secrets, or `.env` files.
-- Rotate local credentials before deploying outside a private development machine.
-- Seed accounts use weak passwords for development only.
-- See [SECURITY.md](SECURITY.md).
+### 📄 License
 
-## Development Notes
+Distributed under the **MIT License** — see [LICENSE](LICENSE) for full text.
 
-- Keep UI calls behind BLL services; UI should not call DAL directly.
-- Keep DAL access behind repository wrappers; `BaseRepo` owns persistence details.
-- Use `ft.Colors.*` and `ft.Icons.*` in Flet code.
-- Use helpers from `webapp_system/src/ui/theme.py` instead of inline UI styling.
-- Keep `tool_train` code under `tool_train/src`; do not recreate duplicated top-level `tool_train/bll`, `tool_train/dal`, or `tool_train/ui` folders.
+---
 
-## Tieng Viet
+<a id="vietnamese-version"></a>
 
-Du an co hai phan chinh tren `main`: `webapp_system/` cho ung dung giam sat bo AI va `tool_train/` cho bo cong cu train/test model. Hien tai `main` khong track `requirements.txt`, nen cai dependencies theo muc Setup. Can PostgreSQL database `ConBoCuoi_DB` truoc khi chay app chinh.
+## 🇻🇳 Tiếng Việt
 
-Chay app: `python webapp_system/src/main.py`
+> Ứng dụng desktop/web đa nền tảng giám sát đàn bò theo thời gian thực — phát hiện hành vi bất thường, cảnh báo dịch bệnh và kết nối chuyên gia thú y qua AI.
 
-Chay toolkit: `python tool_train/src/main_test.py`
+### ✨ Tính năng nổi bật
 
-## License
+| Tính năng | Mô tả |
+|-----------|-------|
+| 🎯 **Phát hiện bò bằng YOLO** | Nhận diện và khoanh vùng từng con bò qua camera thời gian thực |
+| 🧠 **Phân loại hành vi** | Tự động nhận diện: nằm, đánh nhau, stress nhiệt, bất thường |
+| 🚨 **Cảnh báo dịch bệnh** | AI phát hiện dấu hiệu bệnh và gửi alert ngay lập tức |
+| 👥 **3 vai trò người dùng** | Admin, Chuyên gia, Nông dân — giao diện riêng biệt |
+| 💬 **Tư vấn AI** | Farmer chat với AI + gửi ảnh chụp từ camera để xem xét |
+| 📊 **Dashboard analytics** | KPI cards, biểu đồ cảnh báo, lịch sử phiên giám sát |
+| 🖥️ **Desktop + Web** | Chạy offline (desktop) hoặc triển khai web qua LAN |
+| 🔌 **Tích hợp Camera** | Hỗ trợ USB, IP camera, snapshot và live stream |
 
-Distributed under the MIT License. See [LICENSE](LICENSE).
+### 📦 Cài đặt
+
+**Yêu cầu:** Python 3.14+ · Windows 10/11 (desktop) hoặc Linux/macOS (web) · Camera (tùy chọn) · GPU CUDA (khuyến nghị)
+
+```bash
+# 1. Clone
+git clone https://github.com/ngngochieuu05/Con_Bo_Cuoi.git
+cd Con_Bo_Cuoi
+
+# 2. Tạo môi trường ảo
+python -m venv .venv && .venv\Scripts\activate
+
+# 3. Cài đặt thư viện
+pip install -r webapp_system/requirements.txt
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+pip install ultralytics
+
+# 4. Chạy ứng dụng
+python webapp_system/src/main.py
+```
+
+**Web mode** — chỉnh `webapp_system/src/dal/db/app_config.json`:
+
+```json
+{ "app_mode": "web", "app_port": 8080 }
+```
+
+### 🔒 Bảo mật
+
+Xem chính sách bảo mật đầy đủ tại [SECURITY.md](SECURITY.md).
+
+**Tóm tắt:**
+
+- **Không** mở public issue — liên hệ maintainers trực tiếp qua email
+- Mật khẩu hash bằng PBKDF2-HMAC-SHA256 (tự nâng cấp SHA-256 legacy) · session xóa khi đăng xuất · không commit credential
+- Tài khoản seed mặc định có mật khẩu yếu — **thay đổi trước khi deploy production**
+
+→ Xem [SECURITY.md](SECURITY.md) để biết phiên bản được hỗ trợ, hướng dẫn báo cáo, và các giới hạn đã biết.
+
+### 🤝 Đóng góp
+
+```bash
+# 1. Fork repo trên GitHub
+# 2. Clone fork của bạn
+git clone https://github.com/<username>/Con_Bo_Cuoi.git
+
+# 3. Tạo nhánh tính năng
+git checkout -b feat/ten-tinh-nang
+
+# 4. Commit và push
+git commit -m "feat: mô tả thay đổi"
+git push origin feat/ten-tinh-nang
+# → Tạo Pull Request
+```
+
+**Quy tắc phát triển:**
+
+- Tối đa 200 dòng code mỗi file
+- Dùng `ft.Colors.*` / `ft.Icons.*` (chữ hoa)
+- Mọi UI component phải dùng helpers từ `ui/theme.py`
+- Tên file theo kebab-case
+- Commit theo [Conventional Commits](https://conventionalcommits.org)
+
+**Báo cáo lỗi:** Mở [issue](https://github.com/ngngochieuu05/Con_Bo_Cuoi/issues) kèm: bước tái hiện lỗi, kết quả mong đợi vs thực tế, phiên bản Python/OS/Flet, screenshot hoặc log lỗi.
+
+### 🗺️ Lộ trình phát triển
+
+- [x] **Phase 1** — MVP: Xác thực, quản lý Admin, UI cơ bản
+- [x] **Phase 2** — UI Chuyên gia: Dashboard tư vấn, AI insights
+- [ ] **Phase 3** — YOLO: Phát hiện trực tiếp, cảnh báo hành vi
+- [ ] **Phase 4** — Alert system: Thông báo thời gian thực
+- [ ] **Phase 5** — Production: PostgreSQL, triển khai, hiệu năng
+- [ ] **Phase 6** — Cộng đồng: Plugin ecosystem, open API
+
+### 📄 Giấy phép
+
+Phân phối dưới **MIT License** — xem file [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+Made with ❤️ by the Con Bò Cười team
+
+⭐ Nếu dự án hữu ích, hãy để lại một star!
+
+[🔝 Back to top](#)
+
+</div>
